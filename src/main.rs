@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use log::error;
 #[derive(Parser)]
@@ -44,7 +46,7 @@ struct Check {
         forbid_empty_values = true,
         help = "Path to file to which the list of matching inputs will be pushed to as a csv file."
     )]
-    output: std::path::PathBuf,
+    output: PathBuf,
     #[clap(
         short,
         long,
@@ -52,7 +54,7 @@ struct Check {
         forbid_empty_values = true,
         help = "Path to file containing the value to check, one value per line."
     )]
-    input: std::path::PathBuf,
+    input: PathBuf,
     #[clap(
         short,
         long,
@@ -98,7 +100,7 @@ struct Create {
         forbid_empty_values = true,
         help = "Path to the file to output the created bloom filter."
     )]
-    output: std::path::PathBuf,
+    output: PathBuf,
     #[clap(
         short,
         long,
@@ -127,7 +129,7 @@ struct Lookup {
         forbid_empty_values = true,
         help = "Path to a CSV file containing the value to lookup in Datalake."
     )]
-    input: std::path::PathBuf,
+    input: PathBuf,
     #[clap(
         short,
         long,
@@ -135,7 +137,7 @@ struct Lookup {
         forbid_empty_values = true,
         help = "Path to a CSV file in which to output the result."
     )]
-    output: std::path::PathBuf,
+    output: PathBuf,
 }
 
 fn main() {
@@ -166,5 +168,12 @@ fn create_command(args: &Create, _cli: &Cli) {
     if args.queryhash.is_some() {
         println!("queryhash");
     }
-    if let Some(input_path) = &args.file {}
+    if let Some(input_path) = &args.file {
+        match datalake_hunter::create_bloom_from_file(input_path, &args.output, args.positive) {
+            Ok(()) => (),
+            Err(e) => {
+                error!("{}", e)
+            }
+        }
+    }
 }

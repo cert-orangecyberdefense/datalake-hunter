@@ -1,4 +1,5 @@
-use bloomfilter::*;
+use bloomfilter::Bloom;
+// use serde::Deserialize;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::PathBuf;
@@ -22,30 +23,42 @@ pub fn write_to_file() {}
 //     let bloom_bytes = load_bloom(path)?;
 // }
 
-pub fn load_bloom(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
-    let bytes = std::fs::read(path)?;
-    Ok(bytes)
-}
+// pub fn load_bloom(path: &PathBuf) -> Result<Bloom<String>, io::Error> {
+//     let ron_string = std::fs::read_to_string(path);
+// }
 
 pub fn create_bloom(
     input: Vec<String>,
     output_path: &PathBuf,
-    size: &usize,
-    positive_rate: &f64,
+    size: usize,
+    positive_rate: f64,
 ) -> Result<(), String> {
+    let mut bloom: Bloom<String> = Bloom::new_for_fp_rate(size, positive_rate);
+    for value in input {
+        bloom.set(&value);
+    }
+    let bloom_ron = ron::to_string(&bloom).unwrap();
+    let mut output = match File::create(output_path) {
+        Ok(output) => output,
+        Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
+    };
+    match write!(output, "{}", bloom_ron) {
+        Ok(()) => (),
+        Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
+    }
     Ok(())
 }
 
 pub fn create_bloom_from_file(
     input_path: &PathBuf,
     output_path: &PathBuf,
-    positive_rate: &f64,
+    positive_rate: f64,
 ) -> Result<(), String> {
     let input = match read_input(input_path) {
         Ok(input) => input,
         Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
     };
-    let size = &input.len();
+    let size = input.len();
     create_bloom(input, output_path, size, positive_rate)
 }
 
