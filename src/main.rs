@@ -114,7 +114,7 @@ struct Create {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Rate of false positive. The lower the rate the bigger the bloom filter will be."
+        help = "Rate of false positive. The lower the rate the bigger the bloom filter will be." // TO_DO: Add a default value
     )]
     positive: f64,
 }
