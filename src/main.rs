@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
+use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use datalake_hunter::write_bloom_to_file;
 use log::error;
 #[derive(Parser)]
 #[clap(
@@ -169,11 +171,20 @@ fn create_command(args: &Create, _cli: &Cli) {
         println!("queryhash");
     }
     if let Some(input_path) = &args.file {
-        match datalake_hunter::create_bloom_from_file(input_path, &args.output, args.positive) {
+        let bloom: Bloom<String> =
+            match datalake_hunter::create_bloom_from_file(input_path, args.positive) {
+                Ok(bloom) => bloom,
+                Err(e) => {
+                    error!("{}", e);
+                    return;
+                }
+            };
+        match write_bloom_to_file(bloom, &args.output) {
             Ok(()) => (),
             Err(e) => {
-                error!("{}", e)
+                error!("{}", e);
+                return;
             }
-        }
+        };
     }
 }
