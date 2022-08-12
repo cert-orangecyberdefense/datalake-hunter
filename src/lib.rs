@@ -52,10 +52,7 @@ pub fn serialize_bloom(bloom: Bloom<String>) -> Result<String, String> {
 }
 
 pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
-    let serialized_bloom = match serialize_bloom(bloom) {
-        Ok(serialized) => serialized,
-        Err(e) => return Err(e),
-    };
+    let serialized_bloom = serialize_bloom(bloom)?;
     write_to_file(output_path, serialized_bloom)
 }
 
