@@ -114,9 +114,10 @@ struct Create {
     #[clap(
         short,
         long,
-        value_parser,
+        value_parser =  validate_false_positive,
         forbid_empty_values = true,
-        help = "Rate of false positive. The lower the rate the bigger the bloom filter will be." // TO_DO: Add a default value
+        default_value = "0.001",
+        help = "Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be."
     )]
     positive: f64,
 }
@@ -186,5 +187,22 @@ fn create_command(args: &Create, _cli: &Cli) {
                 return;
             }
         };
+    }
+}
+
+fn validate_false_positive(value: &str) -> Result<f64, String> {
+    let fp: f64 = value.parse().map_err(|_| {
+        format!(
+            "`{}` false positive rate need to be between 0.0 an 1.0",
+            value
+        )
+    })?;
+    if fp > 0.0 && fp < 1.0 {
+        Ok(fp)
+    } else {
+        Err(format!(
+            "`{}` false positive rate need to be between 0.0 an 1.0",
+            value
+        ))
     }
 }
