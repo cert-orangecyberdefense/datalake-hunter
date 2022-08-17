@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-
 use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use colored::*;
 use datalake_hunter::write_bloom_to_file;
 use log::error;
+use std::path::PathBuf;
 #[derive(Parser)]
 #[clap(
     name = "Datalake Hunter",
@@ -116,10 +116,10 @@ struct Create {
         long,
         value_parser =  validate_false_positive,
         forbid_empty_values = true,
-        default_value = "0.001",
+        default_value = "0.00001",
         help = "Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be."
     )]
-    positive: f64,
+    rate: f64,
 }
 
 #[derive(Args)]
@@ -149,14 +149,14 @@ fn main() {
     match &cli.command {
         Commands::Check(args) => check_command(args, &cli),
         Commands::Create(args) => create_command(args, &cli),
-        Commands::Lookup(args) => {
-            println!("Lookup was used {:?}", args.input)
+        Commands::Lookup(_args) => {
+            unimplemented!()
         }
     }
 }
 
 fn check_command(args: &Check, _cli: &Cli) {
-    let _input: Vec<String> = match datalake_hunter::read_input(&args.input) {
+    let _input: Vec<String> = match datalake_hunter::read_input_file(&args.input) {
         Ok(input) => input,
         Err(e) => {
             error!("{}: {}", &args.input.display(), e);
@@ -173,7 +173,7 @@ fn create_command(args: &Create, _cli: &Cli) {
     }
     if let Some(input_path) = &args.file {
         let bloom: Bloom<String> =
-            match datalake_hunter::create_bloom_from_file(input_path, args.positive) {
+            match datalake_hunter::create_bloom_from_file(input_path, args.rate) {
                 Ok(bloom) => bloom,
                 Err(e) => {
                     error!("{}", e);
@@ -181,10 +181,15 @@ fn create_command(args: &Create, _cli: &Cli) {
                 }
             };
         match write_bloom_to_file(bloom, &args.output) {
-            Ok(()) => (),
+            Ok(()) => println!(
+                "{}{}",
+                "Successfully create the bloomfilter at path: "
+                    .green()
+                    .bold(),
+                &args.output.display()
+            ),
             Err(e) => {
                 error!("{}", e);
-                return;
             }
         };
     }

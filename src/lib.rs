@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::PathBuf;
 
-pub fn read_input(path: &PathBuf) -> Result<Vec<String>, io::Error> {
+pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut input = Vec::new();
@@ -16,7 +16,7 @@ pub fn read_input(path: &PathBuf) -> Result<Vec<String>, io::Error> {
     Ok(input)
 }
 
-pub fn write_to_file(output_path: &PathBuf, content: String) -> Result<(), String> {
+fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
     let mut output_file = match File::create(&output_path) {
         Ok(output_file) => output_file,
         Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
@@ -28,7 +28,12 @@ pub fn write_to_file(output_path: &PathBuf, content: String) -> Result<(), Strin
     Ok(())
 }
 
-pub fn load_bloom(path: &PathBuf) -> Result<(), String> {
+pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
+    let serialized_bloom = serialize_bloom(&bloom)?;
+    write_file(output_path, serialized_bloom)
+}
+
+pub fn deserialize_bloom(path: &PathBuf) -> Result<(), String> {
     let ron_string = match std::fs::read_to_string(path) {
         Ok(ron_string) => ron_string,
         Err(e) => return Err(format!("{}: {}", path.display(), e)),
@@ -46,14 +51,9 @@ pub fn load_bloom(path: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-pub fn serialize_bloom(bloom: Bloom<String>) -> Result<String, String> {
+pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
     let serialized = ron::to_string(&bloom).expect("Failed to serialize the bloomfilter");
     Ok(serialized)
-}
-
-pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
-    let serialized_bloom = serialize_bloom(bloom)?;
-    write_to_file(output_path, serialized_bloom)
 }
 
 pub fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
@@ -68,7 +68,7 @@ pub fn create_bloom_from_file(
     input_path: &PathBuf,
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
-    let input = match read_input(input_path) {
+    let input = match read_input_file(input_path) {
         Ok(input) => input,
         Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
     };

@@ -1,14 +1,14 @@
 use bloomfilter::Bloom;
+use datalake_hunter::serialize_bloom;
 #[path = "common.rs"]
 mod common;
 
 #[test]
 fn test_bloom_serialization() {
     let bloom = common::create_test_bloom();
-    let serialized1 = ron::to_string(&bloom).unwrap();
+    let serialized1 = serialize_bloom(&bloom).unwrap();
     let deserialized: Bloom<String> = ron::from_str(&serialized1).unwrap();
-    let serialized2 = ron::to_string(&deserialized).unwrap();
-
+    let serialized2 = serialize_bloom(&deserialized).unwrap();
     assert_eq!(serialized1, serialized2);
 }
 

@@ -13,7 +13,7 @@ A CLI program to create bloom filters from Datalake and check for matches from a
 
 The program can be used with:
 
-```(bash)
+```(shell)
 datalake_hunter <command> <parameter>
 ```
 
