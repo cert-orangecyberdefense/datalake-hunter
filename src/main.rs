@@ -143,6 +143,23 @@ struct Lookup {
     output: PathBuf,
 }
 
+fn validate_false_positive(value: &str) -> Result<f64, String> {
+    let fp: f64 = value.parse().map_err(|_| {
+        format!(
+            "`{}` false positive rate need to be between 0.0 an 1.0",
+            value
+        )
+    })?;
+    if fp > 0.0 && fp < 1.0 {
+        Ok(fp)
+    } else {
+        Err(format!(
+            "`{}` false positive rate need to be between 0.0 an 1.0",
+            value
+        ))
+    }
+}
+
 fn main() {
     env_logger::init();
     let cli = Cli::parse();
@@ -153,18 +170,6 @@ fn main() {
             unimplemented!()
         }
     }
-}
-
-fn check_command(args: &Check, _cli: &Cli) {
-    let _input: Vec<String> = match datalake_hunter::read_input_file(&args.input) {
-        Ok(input) => input,
-        Err(e) => {
-            error!("{}: {}", &args.input.display(), e);
-            return;
-        }
-    };
-    if args.bloom.is_some() {}
-    if args.queryhash.is_some() {}
 }
 
 fn create_command(args: &Create, _cli: &Cli) {
@@ -195,19 +200,14 @@ fn create_command(args: &Create, _cli: &Cli) {
     }
 }
 
-fn validate_false_positive(value: &str) -> Result<f64, String> {
-    let fp: f64 = value.parse().map_err(|_| {
-        format!(
-            "`{}` false positive rate need to be between 0.0 an 1.0",
-            value
-        )
-    })?;
-    if fp > 0.0 && fp < 1.0 {
-        Ok(fp)
-    } else {
-        Err(format!(
-            "`{}` false positive rate need to be between 0.0 an 1.0",
-            value
-        ))
-    }
+fn check_command(args: &Check, _cli: &Cli) {
+    let _input: Vec<String> = match datalake_hunter::read_input_file(&args.input) {
+        Ok(input) => input,
+        Err(e) => {
+            error!("{}: {}", &args.input.display(), e);
+            return;
+        }
+    };
+    if args.bloom.is_some() {}
+    if args.queryhash.is_some() {}
 }

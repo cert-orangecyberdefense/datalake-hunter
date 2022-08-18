@@ -33,13 +33,13 @@ pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Resul
     write_file(output_path, serialized_bloom)
 }
 
-pub fn deserialize_bloom(path: &PathBuf) -> Result<(), String> {
+pub fn deserialize_bloom(path: &PathBuf) -> Result<Bloom<String>, String> {
     let ron_string = match std::fs::read_to_string(path) {
         Ok(ron_string) => ron_string,
         Err(e) => return Err(format!("{}: {}", path.display(), e)),
     };
 
-    let _bloom: Bloom<String> = match ron::from_str(&ron_string) {
+    let bloom: Bloom<String> = match ron::from_str(&ron_string) {
         Ok(bloom) => bloom,
         Err(_) => {
             return Err(format!(
@@ -48,7 +48,7 @@ pub fn deserialize_bloom(path: &PathBuf) -> Result<(), String> {
             ))
         }
     };
-    Ok(())
+    Ok(bloom)
 }
 
 pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
@@ -56,7 +56,7 @@ pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
     Ok(serialized)
 }
 
-pub fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
+fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
     let mut bloom: Bloom<String> = Bloom::new_for_fp_rate(size, positive_rate);
     for value in input {
         bloom.set(&value);
