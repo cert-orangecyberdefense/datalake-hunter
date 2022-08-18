@@ -79,3 +79,5 @@ pub fn create_bloom_from_file(
 }
 
 pub fn create_bloom_from_queryhash() {}
+
+pub fn check_val_bloom(bloom: Bloom<String>, input: Vec<String>) {}

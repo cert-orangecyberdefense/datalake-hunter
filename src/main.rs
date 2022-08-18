@@ -1,7 +1,7 @@
 use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
-use datalake_hunter::write_bloom_to_file;
+use datalake_hunter::{deserialize_bloom, write_bloom_to_file};
 use log::error;
 use std::path::PathBuf;
 #[derive(Parser)]
@@ -208,6 +208,18 @@ fn check_command(args: &Check, _cli: &Cli) {
             return;
         }
     };
-    if args.bloom.is_some() {}
+
+    let mut blooms: Vec<Bloom<String>> = Vec::new();
+
+    if let Some(bloom_paths) = &args.bloom {
+        for path in bloom_paths {
+            match deserialize_bloom(path) {
+                Ok(bloom) => blooms.push(bloom),
+                Err(e) => error!("{}", e),
+            }
+        }
+    }
     if args.queryhash.is_some() {}
+
+    for _bloom in blooms {}
 }
