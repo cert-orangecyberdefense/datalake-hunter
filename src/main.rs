@@ -41,7 +41,7 @@ enum Commands {
 
 #[derive(Args)]
 #[clap(
-    about = "Checks if atom values in the provided file can be found in one or more provided bloom filter or in a bloom filter generated from a query hash."
+    about = "Checks if values in the provided file can be found in bloom filters or in Datalake using query hashes."
 )]
 #[clap(group(ArgGroup::new("bloom_filter_group").required(true).args(&["bloom", "queryhash"])))]
 struct Check {
@@ -66,7 +66,7 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a bloom filter to be used for the check. Required if no query hash are provided"
+        help = "Path to a bloom filter to be used for the check. Required if no query hashes are provided"
     )]
     bloom: Option<Vec<std::path::PathBuf>>,
     #[clap(
@@ -74,7 +74,7 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Query hash from which to build a bloom filter. Required if no bloom filter file are provided."
+        help = "Query hash from which to build a bloom filter. Required if no bloom filter files are provided."
     )]
     queryhash: Option<String>,
     #[clap(
@@ -112,7 +112,7 @@ struct Create {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to the file to use to created a bloom filter. One value per line."
+        help = "Path to the file to use to create the bloom filter. One value per line."
     )]
     file: Option<std::path::PathBuf>,
     #[clap(
@@ -134,7 +134,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a CSV file containing the value to lookup in Datalake."
+        help = "Path to a CSV file containing the values to lookup in Datalake."
     )]
     input: PathBuf,
     #[clap(
