@@ -9,5 +9,5 @@ pub fn create_test_bloom() -> Bloom<String> {
     ];
     let size: usize = 5;
     let fp: f64 = 0.01;
-    datalake_hunter::create_bloom(values, size, fp)
+    dtl_hunter::create_bloom(values, size, fp)
 }
