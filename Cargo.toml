@@ -1,5 +1,5 @@
 [package]
-name = "datalake_hunter"
+name = "dtl_hunter"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,4 +13,5 @@ bloomfilter = {  version ="1.0.9", features=["serde"] }
 serde = "1.0.143"
 ron = "0.8.0"
 colored = "2.0.0"
+csv = "1.1.6"
 [dev-dependencies]
