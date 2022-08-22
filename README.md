@@ -26,6 +26,8 @@ Check `dtl_hunter -h` for help, including a list of commands and flags avaiable.
 ### Global Options
 
 - `-e` | `--environment` : The Datalake API environment. Default to production. Possible values are `prod`, `preprod`
+- `-v` | `--version` :  Prints the installed version.
+- `-h` | `--help` : Prints the help message.
 
 ## Create command
 
