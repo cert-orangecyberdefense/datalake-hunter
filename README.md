@@ -29,7 +29,7 @@ Check `dtl_hunter -h` for help, including a list of commands and flags avaiable.
 
 ## Create command
 
-Allow users to create bloom filters for Datalake Hunter.
+Allow users to create bloom filters for Datalake Hunter. Using bloom filters, users can search values in Datalake without an internet connection.
 
 Two types of input are available to create bloom filters:
 
@@ -55,7 +55,7 @@ dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
 
 Allow users to checks if values in a provided file can be found in bloom filters or in Datalake using query hashes.
 
-Matched values can also be looked up on Datalake using the `-l` flag.
+Matched values can also be looked up on Datalake using the `-l` flag with the path to the file in which to save the results. See below for more informations on options.
 
 Multiple bloom filters and query hashes can be provided on a single check.
 
@@ -72,7 +72,7 @@ When a query hash is provided, it will be used as the name of the bloom filter i
 Using the following command, a check will be performed for the values in the input file `input.txt` on each bloom filters and query hashes. The output will be saved in the file `output.csv` in the current directory.
 
 ```(shell)
-dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b domain.bloom -q 54c871d4c27d6e728a263de238633aad -q 031576cc0c6a2ec525047f0e0fab4181
+dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_dangerous_ip.bloom -q 54c871d4c27d6e728a263de238633aad -q 031576cc0c6a2ec525047f0e0fab4181
 ```
 
 ## Options
