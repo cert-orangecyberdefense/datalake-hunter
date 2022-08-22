@@ -26,7 +26,7 @@ Check `dtl_hunter -h` for help, including a list of commands and flags avaiable.
 ### Global Options
 
 - `-e` | `--environment` : The Datalake API environment. Default to production. Possible values are `prod`, `preprod`
-- `-v` | `--version` :  Prints the installed version.
+- `-V` | `--version` :  Prints the installed version.
 - `-h` | `--help` : Prints the help message.
 
 ## Create command
@@ -64,11 +64,13 @@ Matched values can also be looked up on Datalake using the `-l` flag with the pa
 
 Multiple bloom filters and query hashes can be provided on a single check.
 
-The output will be saved to in a csv using the following format:
+The output will printed to the stdout using the following format:
 
 ```(csv)
 matching_value,bloom_filename
 ```
+
+The output can be saved into a file using the `-o` flag and providing the path to the file.
 
 When a query hash is provided, it will be used as the name of the bloom filter in the csv file.
 
@@ -89,3 +91,5 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 - `-i` | `--input` : Path to file containing the value to check, one value per line.
 - `-l` | `--lookup` : Path to the file in which Lookup matched values should be written.
 - `-o` | `--output` : Path to file to which the list of matching inputs will be pushed to as a csv file.
+- `--quiet` : Silence the output of matched value to the stdout.
+- `--no-header` : Remove the header from the CSV file.
