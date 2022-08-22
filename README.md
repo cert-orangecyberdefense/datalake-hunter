@@ -38,6 +38,8 @@ Two types of input are available to create bloom filters:
 - A file with a value on each line
 - A queryhash from Datalake
 
+Check `dtl_hunter create -h` for information on the available options for this sub-command.
+
 ### Example
 
 Using the following command, a bloom filter named `dangerous_ip.bloom` will be created in the current directory from a text file `dangerous_ip.txt` which contains one value per line. A false positive rate of `0.0001` is used.
@@ -57,6 +59,7 @@ dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
 
 Allow users to checks if values in a provided file can be found in bloom filters or in Datalake using query hashes.
 
+
 Matched values can also be looked up on Datalake using the `-l` flag with the path to the file in which to save the results. See below for more informations on options.
 
 Multiple bloom filters and query hashes can be provided on a single check.
@@ -68,6 +71,8 @@ matching_value,bloom_filename
 ```
 
 When a query hash is provided, it will be used as the name of the bloom filter in the csv file.
+
+⚠️ Please be aware that depending on the rate of false positive used when creating your bloom filters, there is a chance of false positive matches.
 
 ## Example
 
