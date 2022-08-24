@@ -2,10 +2,9 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, deserialize_bloom, get_filename_from_path, read_input_file,
-    write_bloom_to_file, write_csv,
+    check_val_in_bloom, get_bloom_from_path, read_input_file, write_bloom_to_file, write_csv,
 };
-use log::error;
+use log::{error, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
 #[derive(Parser)]
@@ -50,9 +49,9 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file to which the list of matching inputs will be pushed to as a csv file."
+        help = "Path to file to which the list of matched inputs will be pushed to as a csv file."
     )]
-    output: PathBuf,
+    output: Option<PathBuf>,
     #[clap(
         short,
         long,
@@ -85,6 +84,10 @@ struct Check {
         help = "Path to the file in which Lookup matched values should be written."
     )]
     lookup: Option<std::path::PathBuf>,
+    #[clap(long, help = "Silence the output of matched value to the stdout.")]
+    quiet: bool,
+    #[clap(long = "no-header", help = "Remove the header in the output csv file.")]
+    no_header: bool,
 }
 
 #[derive(Args)]
@@ -212,43 +215,70 @@ fn check_command(args: &Check, _cli: &Cli) {
         }
     };
 
-    let mut blooms = HashMap::new();
+    let mut blooms: HashMap<String, Bloom<String>> = HashMap::new();
 
     if let Some(bloom_paths) = &args.bloom {
-        for path in bloom_paths {
-            let filename = match get_filename_from_path(path) {
-                Ok(filename) => filename,
-                Err(e) => {
-                    error!("{}", e);
-                    continue;
-                }
-            };
-            match deserialize_bloom(path) {
-                Ok(bloom) => {
-                    blooms.insert(filename, bloom);
-                }
-                Err(e) => error!("{}", e),
+        let file_blooms = match get_bloom_from_path(bloom_paths) {
+            Ok(file_bloom) => file_bloom,
+            Err(e) => {
+                error!("{}", e);
+                return;
             }
-        }
+        };
+        blooms.extend(file_blooms);
     }
     if args.queryhash.is_some() {}
 
     let mut bloom_matches: HashMap<String, Vec<String>> = HashMap::new();
+    let mut nb_matches: usize = 0;
 
     for (filename, bloom) in blooms {
         let matches: Vec<String> = check_val_in_bloom(bloom, &input);
-        let nb_matches: &usize = &matches.len();
-        println!("{} matches in {}", nb_matches, &filename);
+        nb_matches += matches.len();
         bloom_matches.insert(filename, matches);
     }
+    manage_check_output(
+        &args.output,
+        bloom_matches,
+        args.quiet,
+        args.no_header,
+        nb_matches,
+    )
+}
 
-    match write_csv(bloom_matches, &args.output) {
-        Ok(()) => println!(
-            "{} {}",
-            "Results saved in".green().bold(),
-            &args.output.display()
-        ),
-        Err(e) => error!("{}", e),
+fn manage_check_output(
+    output_path: &Option<PathBuf>,
+    bloom_matches: HashMap<String, Vec<String>>,
+    quiet: bool,
+    no_header: bool,
+    nb_matches: usize,
+) {
+    info!(
+        "{}",
+        format!("{} matches", &nb_matches).bright_blue().bold()
+    );
+    if let Some(output) = output_path {
+        if nb_matches > 0 {
+            match write_csv(&bloom_matches, output, &no_header) {
+                Ok(()) => {
+                    info!(
+                        "{} {}",
+                        "Results saved in".green().bold(),
+                        &output.display()
+                    )
+                }
+                Err(e) => error!("{}", e),
+            }
+        } else {
+            warn!("{}", "No matches, output file was not created".yellow());
+        }
+    }
+    if !quiet {
+        for (filename, values) in bloom_matches {
+            for val in values {
+                println!("{},{}", val, filename);
+            }
+        }
     }
 }
 

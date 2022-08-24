@@ -16,27 +16,30 @@ pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
     let reader: BufReader<File> = BufReader::new(file);
     let mut input: Vec<String> = Vec::new();
     for line in reader.lines() {
-        match line {
-            Ok(l) => input.push(l),
-            Err(e) => return Err(e),
-        }
+        input.push(line?);
     }
     Ok(input)
 }
 
-pub fn write_csv(matches: HashMap<String, Vec<String>>, output: &PathBuf) -> Result<(), String> {
+pub fn write_csv(
+    matches: &HashMap<String, Vec<String>>,
+    output: &PathBuf,
+    no_header: &bool,
+) -> Result<(), String> {
     let mut writer: csv::Writer<File> = match csv::Writer::from_path(&output) {
         Ok(writer) => writer,
         Err(e) => return Err(format!("{}: {}", &output.display(), e)),
     };
-    match writer.write_record(&["matching_value", "bloom_filename"]) {
-        // write the csv header
-        Ok(()) => (),
-        Err(e) => return Err(format!("{}: {}", &output.display(), e)),
-    };
+    if !no_header {
+        match writer.write_record(&["matching_value", "bloom_filename"]) {
+            // write the csv header
+            Ok(()) => (),
+            Err(e) => return Err(format!("{}: {}", &output.display(), e)),
+        };
+    }
     for (filename, values) in matches {
         for val in values {
-            match writer.write_record(&[val, filename.clone()]) {
+            match writer.write_record(&[val, filename]) {
                 Ok(()) => (),
                 Err(e) => return Err(format!("{}: {}", &output.display(), e)),
             }
@@ -110,6 +113,18 @@ pub fn create_bloom_from_file(
 
     let bloom: Bloom<String> = create_bloom(input, size, positive_rate);
     Ok(bloom)
+}
+
+pub fn get_bloom_from_path(
+    bloom_paths: &Vec<PathBuf>,
+) -> Result<HashMap<String, Bloom<String>>, String> {
+    let mut blooms: HashMap<String, Bloom<String>> = HashMap::new();
+    for path in bloom_paths {
+        let filename = get_filename_from_path(path)?;
+        let bloom = deserialize_bloom(path)?;
+        blooms.insert(filename, bloom);
+    }
+    Ok(blooms)
 }
 
 pub fn create_bloom_from_queryhash() {}
