@@ -1,12 +1,20 @@
-use bloomfilter::*;
+use bloomfilter::Bloom;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub fn read_input(path: &PathBuf) -> Result<Vec<String>, io::Error> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let mut input = Vec::new();
+pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
+    match path.file_name().and_then(|name| name.to_str()) {
+        Some(path) => Ok(path.to_string()),
+        None => Err(format!("{}: No file found in path", path.display())),
+    }
+}
+
+pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
+    let file: File = File::open(path)?;
+    let reader: BufReader<File> = BufReader::new(file);
+    let mut input: Vec<String> = Vec::new();
     for line in reader.lines() {
         match line {
             Ok(l) => input.push(l),
@@ -16,37 +24,102 @@ pub fn read_input(path: &PathBuf) -> Result<Vec<String>, io::Error> {
     Ok(input)
 }
 
-pub fn write_to_file() {}
-
-// pub fn check_bloom(path: &PathBuf, input: Vec<String>) -> Result<Vec<String>, io::Error> {
-//     let bloom_bytes = load_bloom(path)?;
-// }
-
-pub fn load_bloom(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
-    let bytes = std::fs::read(path)?;
-    Ok(bytes)
+pub fn write_csv(matches: HashMap<String, Vec<String>>, output: &PathBuf) -> Result<(), String> {
+    let mut writer: csv::Writer<File> = match csv::Writer::from_path(&output) {
+        Ok(writer) => writer,
+        Err(e) => return Err(format!("{}: {}", &output.display(), e)),
+    };
+    match writer.write_record(&["matching_value", "bloom_filename"]) {
+        // write the csv header
+        Ok(()) => (),
+        Err(e) => return Err(format!("{}: {}", &output.display(), e)),
+    };
+    for (filename, values) in matches {
+        for val in values {
+            match writer.write_record(&[val, filename.clone()]) {
+                Ok(()) => (),
+                Err(e) => return Err(format!("{}: {}", &output.display(), e)),
+            }
+        }
+    }
+    match writer.flush() {
+        // flush the internal buffer
+        Ok(()) => (),
+        Err(e) => return Err(format!("{}: {}", &output.display(), e)),
+    };
+    Ok(())
 }
 
-pub fn create_bloom(
-    input: Vec<String>,
-    output_path: &PathBuf,
-    size: &usize,
-    positive_rate: &f64,
-) -> Result<(), String> {
+fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
+    let mut output_file: File = match File::create(&output_path) {
+        Ok(output_file) => output_file,
+        Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
+    };
+    match write!(output_file, "{}", content) {
+        Ok(()) => (),
+        Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
+    }
     Ok(())
+}
+
+pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
+    let serialized_bloom: String = serialize_bloom(&bloom)?;
+    write_file(output_path, serialized_bloom)
+}
+
+pub fn deserialize_bloom(path: &PathBuf) -> Result<Bloom<String>, String> {
+    let ron_string: String = match std::fs::read_to_string(path) {
+        Ok(ron_string) => ron_string,
+        Err(e) => return Err(format!("{}: {}", path.display(), e)),
+    };
+
+    let bloom: Bloom<String> = match ron::from_str(&ron_string) {
+        Ok(bloom) => bloom,
+        Err(_) => {
+            return Err(format!(
+                "Failed to deserialize bloom filter located in {}",
+                path.display()
+            ))
+        }
+    };
+    Ok(bloom)
+}
+
+pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
+    let serialized: String = ron::to_string(&bloom).expect("Failed to serialize the bloomfilter");
+    Ok(serialized)
+}
+
+pub fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
+    let mut bloom: Bloom<String> = Bloom::new_for_fp_rate(size, positive_rate);
+    for value in input {
+        bloom.set(&value);
+    }
+    bloom
 }
 
 pub fn create_bloom_from_file(
     input_path: &PathBuf,
-    output_path: &PathBuf,
-    positive_rate: &f64,
-) -> Result<(), String> {
-    let input = match read_input(input_path) {
+    positive_rate: f64,
+) -> Result<Bloom<String>, String> {
+    let input: Vec<String> = match read_input_file(input_path) {
         Ok(input) => input,
         Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
     };
-    let size = &input.len();
-    create_bloom(input, output_path, size, positive_rate)
+    let size: usize = input.len();
+
+    let bloom: Bloom<String> = create_bloom(input, size, positive_rate);
+    Ok(bloom)
 }
 
 pub fn create_bloom_from_queryhash() {}
+
+pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<String> {
+    let mut matches: Vec<String> = Vec::new();
+    for value in input {
+        if bloom.check(value) {
+            matches.push(value.to_string());
+        }
+    }
+    matches
+}
