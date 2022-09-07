@@ -122,14 +122,14 @@ pub fn create_bloom_from_file(
 }
 
 pub fn create_bloom_from_queryhash(
-    query_hash: &String,
+    query_hash: String,
     environment: &String,
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
     let dtl: Datalake = init_datalake(environment);
-    let atom_values: Vec<String> = match fetch_atom_values_from_dtl(query_hash.clone(), dtl) {
+    let atom_values: Vec<String> = match fetch_atom_values_from_dtl(query_hash, dtl) {
         Ok(atom_values) => atom_values,
-        Err(e) => return Err(format!("{}", e)),
+        Err(e) => return Err(e),
     };
     let size: usize = atom_values.len();
 

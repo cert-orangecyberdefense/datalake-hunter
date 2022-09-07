@@ -168,7 +168,9 @@ fn validate_false_positive(value: &str) -> Result<f64, String> {
 }
 
 fn main() {
-    env_logger::init();
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
     let cli: Cli = Cli::parse();
     match &cli.command {
         Commands::Check(args) => check_command(args, &cli),
@@ -182,7 +184,7 @@ fn main() {
 fn create_command(args: &Create, cli: &Cli) {
     if let Some(queryhash) = &args.queryhash {
         let bloom: Bloom<String> = match dtl_hunter::create_bloom_from_queryhash(
-            &queryhash,
+            queryhash.clone(),
             &cli.environment,
             args.rate,
         ) {
