@@ -176,30 +176,45 @@ fn main() {
     }
 }
 
-fn create_command(args: &Create, _cli: &Cli) {
-    if args.queryhash.is_some() {
-        println!("queryhash");
+fn create_command(args: &Create, cli: &Cli) {
+    if let Some(queryhash) = &args.queryhash {
+        let bloom: Bloom<String> = match dtl_hunter::create_bloom_from_queryhash(
+            &queryhash,
+            &cli.environment,
+            args.rate,
+        ) {
+            Ok(bloom) => bloom,
+            Err(e) => {
+                error!("Error while creating bloom filter: {}", e);
+                return;
+            }
+        };
+        manage_bloom_to_write(bloom, &args.output)
     }
     if let Some(input_path) = &args.file {
         let bloom: Bloom<String> = match dtl_hunter::create_bloom_from_file(input_path, args.rate) {
             Ok(bloom) => bloom,
             Err(e) => {
-                error!("{}", e);
+                error!("Error while creating bloom filter: {}", e);
                 return;
             }
         };
-        match write_bloom_to_file(bloom, &args.output) {
-            Ok(()) => println!(
+        manage_bloom_to_write(bloom, &args.output)
+    }
+}
+
+fn manage_bloom_to_write(bloom: Bloom<String>, output: &PathBuf) {
+    match write_bloom_to_file(bloom, output) {
+        Ok(()) => {
+            println!(
                 "{}{}",
                 "Successfully create the bloomfilter at path: "
                     .green()
                     .bold(),
-                &args.output.display()
-            ),
-            Err(e) => {
-                error!("{}", e);
-            }
-        };
+                &output.display()
+            );
+        }
+        Err(e) => error!("{}", e),
     }
 }
 

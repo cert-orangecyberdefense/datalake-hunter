@@ -1,8 +1,14 @@
 use bloomfilter::Bloom;
+use ocd_datalake_rs::{Datalake, DatalakeSetting};
+use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
+use std::sync::mpsc::TryRecvError;
+use std::time::Duration;
+use std::{env, thread};
 
 pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
     match path.file_name().and_then(|name| name.to_str()) {
@@ -17,7 +23,7 @@ pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
     let mut input: Vec<String> = Vec::new();
     for line in reader.lines() {
         match line {
-            Ok(l) => input.push(l),
+            Ok(l) => input.push(l.trim().to_string()),
             Err(e) => return Err(e),
         }
     }
@@ -112,7 +118,101 @@ pub fn create_bloom_from_file(
     Ok(bloom)
 }
 
-pub fn create_bloom_from_queryhash() {}
+pub fn create_bloom_from_queryhash(
+    query_hash: &String,
+    environment: &String,
+    positive_rate: f64,
+) -> Result<Bloom<String>, String> {
+    let dtl: Datalake = init_datalake(environment);
+    let atom_values: Vec<String> = match fetch_atom_values_from_dtl(query_hash.clone(), dtl) {
+        Ok(atom_values) => atom_values,
+        Err(e) => return Err(format!("{}", e)),
+    };
+    let size: usize = atom_values.len();
+
+    let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
+    Ok(bloom)
+}
+
+fn fetch_atom_values_from_dtl(
+    query_hash: String,
+    mut dtl: Datalake,
+) -> Result<Vec<String>, String> {
+    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+
+    let (sender, receiver) = mpsc::channel();
+    let ui_thread = thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(500));
+        match receiver.try_recv() {
+            Ok(_) | Err(TryRecvError::Disconnected) => {
+                thread::sleep(Duration::from_secs(1));
+                break;
+            }
+            Err(TryRecvError::Empty) => {}
+        }
+    });
+
+    let bulk_search_thread =
+        thread::spawn(move || dtl.bulk_search(query_hash, vec!["atom_value".to_string()]));
+    sender.send(()).unwrap();
+    ui_thread.join().unwrap();
+    let res = match bulk_search_thread.join().expect("Thread failed") {
+        Ok(res) => {
+            sp.stop_and_persist("✔", "Finished!".into());
+            res
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}", e));
+        }
+    };
+    let mut values: Vec<String> = Vec::new();
+    for line in res.lines() {
+        if line.contains("atom_value") {
+            continue;
+        }
+        values.push(line.trim().to_string())
+    }
+    Ok(values)
+}
+
+fn init_datalake(environment: &String) -> Datalake {
+    let username = get_username();
+    let password = get_password();
+    let dtl_setting = if environment == "preprod" {
+        DatalakeSetting::preprod()
+    } else {
+        DatalakeSetting::prod()
+    };
+    Datalake::new(username, password, dtl_setting)
+}
+
+fn get_username() -> String {
+    match env::var("OCD_DTL_RS_USERNAME") {
+        Ok(username) => username,
+        Err(_) => {
+            println!("To avoid having to enter your username every time please set the environment variable OCD_DTL_RS_USERNAME.");
+            println!("Please enter your username:");
+            let mut username = String::new();
+            io::stdin()
+                .read_line(&mut username)
+                .expect("Failed to read line");
+            username.trim().to_string()
+        }
+    }
+}
+
+fn get_password() -> String {
+    match env::var("OCD_DTL_RS_PASSWORD") {
+        Ok(password) => password,
+        Err(_) => {
+            println!("To avoid having to enter your password every time, please set the environment variable OCD_DTL_RS_PASSWORD.");
+            println!("Please enter your password:");
+            let password = rpassword::read_password().unwrap();
+            password.trim().to_string()
+        }
+    }
+}
 
 pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<String> {
     let mut matches: Vec<String> = Vec::new();
