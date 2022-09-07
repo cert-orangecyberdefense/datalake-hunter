@@ -166,14 +166,19 @@ fn fetch_atom_values_from_dtl(
             return Err(format!("{}", e));
         }
     };
+    let atom_values = dtl_csv_resp_to_vec(res);
+    Ok(atom_values)
+}
+
+fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
     let mut values: Vec<String> = Vec::new();
-    for line in res.lines() {
+    for line in csv.lines() {
         if line.contains("atom_value") {
             continue;
         }
         values.push(line.trim().to_string())
     }
-    Ok(values)
+    values
 }
 
 fn init_datalake(environment: &String) -> Datalake {
@@ -222,4 +227,23 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
         }
     }
     matches
+}
+
+#[test]
+fn test_dtl_csv_resp_to_vec() {
+    let csv = "test1\ntest2\ntest3\ntest4\ntest5\ntest6\ntest7\ntest8\ntest9\ntest10";
+    let expected = vec![
+        "test1".to_string(),
+        "test2".to_string(),
+        "test3".to_string(),
+        "test4".to_string(),
+        "test5".to_string(),
+        "test6".to_string(),
+        "test7".to_string(),
+        "test8".to_string(),
+        "test9".to_string(),
+        "test10".to_string(),
+    ];
+    let res = dtl_csv_resp_to_vec(csv.to_string());
+    assert_eq!(res, expected)
 }
