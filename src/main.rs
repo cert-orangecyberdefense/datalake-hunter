@@ -173,9 +173,7 @@ fn main() {
     match &cli.command {
         Commands::Check(args) => check_command(args, &cli),
         Commands::Create(args) => create_command(args, &cli),
-        Commands::Lookup(_args) => {
-            unimplemented!()
-        }
+        Commands::Lookup(args) => lookup_command(args, &cli),
     }
 }
 
@@ -280,6 +278,16 @@ fn manage_check_output(
             }
         }
     }
+}
+
+fn lookup_command(args: &Lookup, _cli: &Cli) {
+    let input: Vec<String> = match read_input_file(&args.input) {
+        Ok(input) => input,
+        Err(e) => {
+            error!("{}: {}", &args.input.display(), e);
+            return;
+        }
+    };
 }
 
 #[test]

@@ -138,3 +138,7 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
     }
     matches
 }
+
+pub fn lookup_values_in_dtl(_atom_values: Vec<String>) -> Result<String, String> {
+    Ok("".to_string())
+}
