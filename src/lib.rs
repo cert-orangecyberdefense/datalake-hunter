@@ -2,13 +2,10 @@ use bloomfilter::Bloom;
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
-use std::sync::mpsc::TryRecvError;
-use std::time::Duration;
-use std::{env, thread};
 
 pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
     match path.file_name().and_then(|name| name.to_str()) {
@@ -127,10 +124,7 @@ pub fn create_bloom_from_queryhash(
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
     let dtl: Datalake = init_datalake(environment);
-    let atom_values: Vec<String> = match fetch_atom_values_from_dtl(query_hash, dtl) {
-        Ok(atom_values) => atom_values,
-        Err(e) => return Err(e),
-    };
+    let atom_values: Vec<String> = fetch_atom_values_from_dtl(query_hash, dtl)?;
     let size: usize = atom_values.len();
 
     let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
@@ -143,23 +137,8 @@ fn fetch_atom_values_from_dtl(
 ) -> Result<Vec<String>, String> {
     let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
 
-    let (sender, receiver) = mpsc::channel();
-    let ui_thread = thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(500));
-        match receiver.try_recv() {
-            Ok(_) | Err(TryRecvError::Disconnected) => {
-                thread::sleep(Duration::from_secs(1));
-                break;
-            }
-            Err(TryRecvError::Empty) => {}
-        }
-    });
-
-    let bulk_search_thread =
-        thread::spawn(move || dtl.bulk_search(query_hash, vec!["atom_value".to_string()]));
-    sender.send(()).unwrap();
-    ui_thread.join().unwrap();
-    let res = match bulk_search_thread.join().expect("Thread failed") {
+    let bulk_search_res = dtl.bulk_search(query_hash, vec!["atom_value".to_string()]);
+    let res = match bulk_search_res {
         Ok(res) => {
             sp.stop_and_persist("✔", "Finished!".into());
             res
@@ -174,13 +153,11 @@ fn fetch_atom_values_from_dtl(
 }
 
 fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
-    let mut values: Vec<String> = Vec::new();
-    for line in csv.lines() {
-        if line.contains("atom_value") {
-            continue;
-        }
-        values.push(line.trim().to_string())
-    }
+    let values: Vec<String> = csv
+        .lines()
+        .filter(|line| !line.contains("atom_value"))
+        .map(|line| line.trim().to_string())
+        .collect();
     values
 }
 
@@ -245,13 +222,12 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
 
 #[test]
 fn test_dtl_csv_resp_to_vec() {
-    let csv = "test1\ntest2\ntest3\ntest4\ntest5\ntest6\ntest7\ntest8\ntest9\ntest10";
+    let csv = "test1\ntest2\ntest3\ntest4\natom_value\ntest6\ntest7\ntest8\ntest9\ntest10";
     let expected = vec![
         "test1".to_string(),
         "test2".to_string(),
         "test3".to_string(),
         "test4".to_string(),
-        "test5".to_string(),
         "test6".to_string(),
         "test7".to_string(),
         "test8".to_string(),

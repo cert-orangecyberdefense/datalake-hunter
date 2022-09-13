@@ -182,33 +182,23 @@ fn main() {
 }
 
 fn create_command(args: &Create, cli: &Cli) {
-    if let Some(queryhash) = &args.queryhash {
-        let bloom: Bloom<String> = match dtl_hunter::create_bloom_from_queryhash(
-            queryhash.clone(),
-            &cli.environment,
-            args.rate,
-        ) {
-            Ok(bloom) => bloom,
-            Err(e) => {
-                error!("Error while creating bloom filter: {}", e);
-                return;
-            }
-        };
-        manage_bloom_to_write(bloom, &args.output)
-    }
-    if let Some(input_path) = &args.file {
-        let bloom: Bloom<String> = match dtl_hunter::create_bloom_from_file(input_path, args.rate) {
-            Ok(bloom) => bloom,
-            Err(e) => {
-                error!("Error while creating bloom filter: {}", e);
-                return;
-            }
-        };
-        manage_bloom_to_write(bloom, &args.output)
-    }
+    let bloom_result = if let Some(queryhash) = &args.queryhash {
+        dtl_hunter::create_bloom_from_queryhash(queryhash.clone(), &cli.environment, args.rate)
+    } else if let Some(input_path) = &args.file {
+        dtl_hunter::create_bloom_from_file(input_path, args.rate)
+    } else {
+        error!("Unexpected case");
+        return;
+    };
+    match bloom_result {
+        Ok(bloom) => write_bloom(bloom, &args.output),
+        Err(e) => {
+            error!("Error while creating bloom filter: {}", e)
+        }
+    };
 }
 
-fn manage_bloom_to_write(bloom: Bloom<String>, output: &PathBuf) {
+fn write_bloom(bloom: Bloom<String>, output: &PathBuf) {
     match write_bloom_to_file(bloom, output) {
         Ok(()) => {
             println!(
@@ -271,8 +261,12 @@ fn manage_check_output(
     nb_matches: usize,
 ) {
     info!(
-        "{}",
-        format!("{} matches", &nb_matches).bright_blue().bold()
+        "{} - {}",
+        format!("{} matches", &nb_matches).bright_blue().bold(),
+        "Be advised that some matches might be false positives."
+            .yellow()
+            .italic()
+            .dimmed()
     );
     if let Some(output) = output_path {
         if nb_matches > 0 {
