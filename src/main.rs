@@ -58,7 +58,7 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file containing the value to check, one value per line."
+        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -116,7 +116,7 @@ struct Create {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to the file to use to create the bloom filter. One value per line."
+        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
     )]
     file: Option<std::path::PathBuf>,
     #[clap(
@@ -138,7 +138,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to the file containing the values to lookup in Datalake. One value per line."
+        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -292,7 +292,7 @@ fn manage_check_output(
     }
 }
 
-fn lookup_command(args: &Lookup, _cli: &Cli) {
+fn lookup_command(args: &Lookup, cli: &Cli) {
     let input: Vec<String> = match read_input_file(&args.input) {
         Ok(input) => input,
         Err(e) => {
@@ -300,7 +300,7 @@ fn lookup_command(args: &Lookup, _cli: &Cli) {
             return;
         }
     };
-    _ = lookup_values_in_dtl(input, &args.output);
+    _ = lookup_values_in_dtl(input, &args.output, &cli.environment);
 }
 
 #[test]
