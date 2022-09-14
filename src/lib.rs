@@ -12,14 +12,35 @@ pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
 }
 
 pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
-    let file: File = File::open(path)?;
-    let reader: BufReader<File> = BufReader::new(file);
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_path(path)?;
     let mut input: Vec<String> = Vec::new();
-    for line in reader.lines() {
-        input.push(line?);
+    for result in reader.records() {
+        let record = result?;
+        let atom: String = match record.get(0) {
+            Some(atom) => atom.trim().to_string(),
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{}: No data found in file", path.display()),
+                ))
+            }
+        };
+        input.push(atom);
     }
     Ok(input)
 }
+
+// pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
+//     let file: File = File::open(path)?;
+//     let reader: BufReader<File> = BufReader::new(file);
+//     let mut input: Vec<String> = Vec::new();
+//     for line in reader.lines() {
+//         input.push(line?);
+//     }
+//     Ok(input)
+// }
 
 pub fn write_csv(
     matches: &HashMap<String, Vec<String>>,
@@ -139,6 +160,6 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
     matches
 }
 
-pub fn lookup_values_in_dtl(_atom_values: Vec<String>) -> Result<String, String> {
+pub fn lookup_values_in_dtl(atom_values: Vec<String>, output: &PathBuf) -> Result<String, String> {
     Ok("".to_string())
 }

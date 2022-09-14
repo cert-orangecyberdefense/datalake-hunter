@@ -2,7 +2,8 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, get_bloom_from_path, read_input_file, write_bloom_to_file, write_csv,
+    check_val_in_bloom, get_bloom_from_path, lookup_values_in_dtl, read_input_file,
+    write_bloom_to_file, write_csv,
 };
 use log::{error, info, warn};
 use std::collections::HashMap;
@@ -137,7 +138,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a CSV file containing the values to lookup in Datalake."
+        help = "Path to the file containing the values to lookup in Datalake. One value per line."
     )]
     input: PathBuf,
     #[clap(
@@ -288,6 +289,7 @@ fn lookup_command(args: &Lookup, _cli: &Cli) {
             return;
         }
     };
+    _ = lookup_values_in_dtl(input, &args.output);
 }
 
 #[test]
