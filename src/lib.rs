@@ -1,5 +1,8 @@
 use bloomfilter::Bloom;
+use ocd_datalake_rs::{Datalake, DatalakeSetting};
+use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
@@ -136,6 +139,86 @@ pub fn create_bloom_from_file(
     Ok(bloom)
 }
 
+pub fn create_bloom_from_queryhash(
+    query_hash: String,
+    environment: &String,
+    positive_rate: f64,
+) -> Result<Bloom<String>, String> {
+    let dtl: Datalake = init_datalake(environment);
+    let atom_values: Vec<String> = fetch_atom_values_from_dtl(query_hash, dtl)?;
+    let size: usize = atom_values.len();
+
+    let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
+    Ok(bloom)
+}
+
+fn fetch_atom_values_from_dtl(
+    query_hash: String,
+    mut dtl: Datalake,
+) -> Result<Vec<String>, String> {
+    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+
+    let bulk_search_res = dtl.bulk_search(query_hash, vec!["atom_value".to_string()]);
+    let res = match bulk_search_res {
+        Ok(res) => {
+            sp.stop_and_persist("✔", "Finished!".into());
+            res
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}", e));
+        }
+    };
+    let atom_values = dtl_csv_resp_to_vec(res);
+    Ok(atom_values)
+}
+
+fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
+    let values: Vec<String> = csv
+        .lines()
+        .filter(|line| !line.contains("atom_value"))
+        .map(|line| line.trim().to_string())
+        .collect();
+    values
+}
+
+fn init_datalake(environment: &String) -> Datalake {
+    let username = get_username();
+    let password = get_password();
+    let dtl_setting = if environment == "preprod" {
+        DatalakeSetting::preprod()
+    } else {
+        DatalakeSetting::prod()
+    };
+    Datalake::new(username, password, dtl_setting)
+}
+
+fn get_username() -> String {
+    match env::var("OCD_DTL_RS_USERNAME") {
+        Ok(username) => username,
+        Err(_) => {
+            println!("To avoid having to enter your username every time please set the environment variable OCD_DTL_RS_USERNAME.");
+            println!("Please enter your username:");
+            let mut username = String::new();
+            io::stdin()
+                .read_line(&mut username)
+                .expect("Failed to read line");
+            username.trim().to_string()
+        }
+    }
+}
+
+fn get_password() -> String {
+    match env::var("OCD_DTL_RS_PASSWORD") {
+        Ok(password) => password,
+        Err(_) => {
+            println!("To avoid having to enter your password every time, please set the environment variable OCD_DTL_RS_PASSWORD.");
+            println!("Please enter your password:");
+            let password = rpassword::read_password().unwrap();
+            password.trim().to_string()
+        }
+    }
+}
 pub fn get_bloom_from_path(
     bloom_paths: &Vec<PathBuf>,
 ) -> Result<HashMap<String, Bloom<String>>, String> {
@@ -147,8 +230,6 @@ pub fn get_bloom_from_path(
     }
     Ok(blooms)
 }
-
-pub fn create_bloom_from_queryhash() {}
 
 pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<String> {
     let mut matches: Vec<String> = Vec::new();
@@ -162,4 +243,22 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
 
 pub fn lookup_values_in_dtl(atom_values: Vec<String>, output: &PathBuf) -> Result<String, String> {
     Ok("".to_string())
+}
+
+#[test]
+fn test_dtl_csv_resp_to_vec() {
+    let csv = "test1\ntest2\ntest3\ntest4\natom_value\ntest6\ntest7\ntest8\ntest9\ntest10";
+    let expected = vec![
+        "test1".to_string(),
+        "test2".to_string(),
+        "test3".to_string(),
+        "test4".to_string(),
+        "test6".to_string(),
+        "test7".to_string(),
+        "test8".to_string(),
+        "test9".to_string(),
+        "test10".to_string(),
+    ];
+    let res = dtl_csv_resp_to_vec(csv.to_string());
+    assert_eq!(res, expected)
 }
