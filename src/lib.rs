@@ -3,9 +3,8 @@ use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
 use std::env;
-use std::error::Error;
 use std::fs::File;
-use std::io::{self, prelude::*, ErrorKind};
+use std::io::{self, prelude::*};
 use std::path::{Path, PathBuf};
 
 pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
@@ -227,6 +226,7 @@ fn get_password() -> Result<String, io::Error> {
         }
     }
 }
+
 pub fn get_bloom_from_path(
     bloom_paths: &Vec<PathBuf>,
 ) -> Result<HashMap<String, Bloom<String>>, String> {
@@ -251,21 +251,25 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
 
 pub fn lookup_values_in_dtl(
     atom_values: Vec<String>,
-    _output: &PathBuf,
+    output: &PathBuf,
     environment: &String,
-) -> Result<String, String> {
+) -> Result<(), String> {
     let mut dtl: Datalake = match init_datalake(environment) {
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
-    let _csv_result: String = match dtl.bulk_lookup(atom_values) {
-        Ok(result) => result,
-        Err(err) => {
-            println!("{err}"); // User readable error
-            panic!("{err:#?}"); // Error pretty printed for debug
+    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+    let csv_result: String = match dtl.bulk_lookup(atom_values) {
+        Ok(csv_result) => {
+            sp.stop_and_persist("✔", "Finished!".into());
+            csv_result
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}", e));
         }
     };
-    Ok("".to_string())
+    write_file(output, csv_result)
 }
 
 #[test]

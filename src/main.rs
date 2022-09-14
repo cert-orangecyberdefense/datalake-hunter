@@ -58,7 +58,7 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
+        help = "Path to file containing the values to check, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -116,7 +116,7 @@ struct Create {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
+        help = "Path to file to use to create a bloom filter, one value per line or the values from the first column in a CSV."
     )]
     file: Option<std::path::PathBuf>,
     #[clap(
@@ -138,7 +138,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file containing the value to check, one value per line or the values from the first column in a CSV."
+        help = "Path to file containing the values to lookup, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -146,7 +146,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a CSV file in which to output the result."
+        help = "Path to the file in which to output the result."
     )]
     output: PathBuf,
 }
@@ -260,12 +260,8 @@ fn manage_check_output(
     nb_matches: usize,
 ) {
     info!(
-        "{} - {}",
+        "{}",
         format!("{} matches", &nb_matches).bright_blue().bold(),
-        "Be advised that some matches might be false positives."
-            .yellow()
-            .italic()
-            .dimmed()
     );
     if let Some(output) = output_path {
         if nb_matches > 0 {
@@ -300,7 +296,18 @@ fn lookup_command(args: &Lookup, cli: &Cli) {
             return;
         }
     };
-    _ = lookup_values_in_dtl(input, &args.output, &cli.environment);
+    match lookup_values_in_dtl(input, &args.output, &cli.environment) {
+        Ok(()) => {
+            println!(
+                "{}{}",
+                "Successfully looked up values in Datalake, results are saved at path: "
+                    .green()
+                    .bold(),
+                &args.output.display()
+            );
+        }
+        Err(e) => error!("{}", e),
+    }
 }
 
 #[test]
