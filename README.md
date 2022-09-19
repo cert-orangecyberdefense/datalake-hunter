@@ -78,7 +78,7 @@ The output can be saved into a file using the `-o` flag and providing the path t
 
 When a query hash is provided, it will be used as the name of the bloom filter in the csv file.
 
-⚠️ Please be aware that depending on the rate of false positive used when creating your bloom filters, there is a chance of false positive matches. The default false positive rate is `0.00001`, meaning  1 false positive in 100 000.
+⚠️ Please be aware that bloom filters **can and will produce false positive matches** but **will not produce false negative**. The default false positive rate for our bloom filters is `0.00001`, meaning  1 false positive in 100 000. You are free to change this rate but there will always be a chance of false positive result. Please check the project description above for more information.
 
 ## Example
 
