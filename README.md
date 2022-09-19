@@ -100,7 +100,7 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 
 ## Lookup Command
 
-Allow users to look up values in Datalake to get more information about the values that were matched.
+Allow users to look up values in Datalake to get more information. It can be used after using the Check command to get details on the matched threats. This command does not interract with bloom filters.
 
 Provides data from Datalake in a CSV format.
 
