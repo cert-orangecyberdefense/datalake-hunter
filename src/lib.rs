@@ -7,6 +7,10 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
 
+pub fn get_current_working_dir() -> std::io::Result<PathBuf> {
+    env::current_dir()
+}
+
 pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
     match path.file_name().and_then(|name| name.to_str()) {
         Some(path) => Ok(path.to_string()),

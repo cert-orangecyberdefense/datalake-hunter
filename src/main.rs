@@ -109,7 +109,7 @@ struct Create {
         forbid_empty_values = true,
         help = "Path to the file to output the created bloom filter."
     )]
-    output: PathBuf,
+    output: Option<PathBuf>,
     #[clap(
         short,
         long,
@@ -190,8 +190,21 @@ fn create_command(args: &Create, cli: &Cli) {
         error!("Unexpected case");
         return;
     };
+    let output_path: PathBuf = if args.queryhash.is_none() {
+        args.output.clone().unwrap_or_else(|| {
+            let mut path = PathBuf::from(&args.file.as_ref().unwrap());
+            path.set_extension("bloom");
+            path
+        })
+    } else {
+        args.output.clone().unwrap_or_else(|| {
+            let mut path = PathBuf::from(&args.queryhash.as_ref().unwrap());
+            path.set_extension("bloom");
+            path
+        })
+    };
     match bloom_result {
-        Ok(bloom) => write_bloom(bloom, &args.output),
+        Ok(bloom) => write_bloom(bloom, &output_path),
         Err(e) => {
             error!("Error while creating bloom filter: {}", e)
         }
