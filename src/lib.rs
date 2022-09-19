@@ -4,7 +4,7 @@ use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{self, prelude::*};
 use std::path::{Path, PathBuf};
 
 pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
@@ -15,11 +15,22 @@ pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
 }
 
 pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
-    let file: File = File::open(path)?;
-    let reader: BufReader<File> = BufReader::new(file);
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_path(path)?;
     let mut input: Vec<String> = Vec::new();
-    for line in reader.lines() {
-        input.push(line?.trim().to_string());
+    for result in reader.records() {
+        let record = result?;
+        let atom: String = match record.get(0) {
+            Some(atom) => atom.trim().to_string(),
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{}: No data found in file", path.display()),
+                ))
+            }
+        };
+        input.push(atom);
     }
     Ok(input)
 }
@@ -123,7 +134,10 @@ pub fn create_bloom_from_queryhash(
     environment: &String,
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
-    let dtl: Datalake = init_datalake(environment);
+    let dtl: Datalake = match init_datalake(environment) {
+        Ok(dtl) => dtl,
+        Err(e) => return Err(format!("{}", e)),
+    };
     let atom_values: Vec<String> = fetch_atom_values_from_dtl(query_hash, dtl)?;
     let size: usize = atom_values.len();
 
@@ -161,43 +175,58 @@ fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
     values
 }
 
-fn init_datalake(environment: &String) -> Datalake {
-    let username = get_username();
-    let password = get_password();
+fn init_datalake(environment: &String) -> Result<Datalake, io::Error> {
+    let username = get_username()?;
+    let password = get_password()?;
     let dtl_setting = if environment == "preprod" {
         DatalakeSetting::preprod()
     } else {
         DatalakeSetting::prod()
     };
-    Datalake::new(username, password, dtl_setting)
+    Ok(Datalake::new(username, password, dtl_setting))
 }
 
-fn get_username() -> String {
+fn get_username() -> Result<String, io::Error> {
     match env::var("OCD_DTL_RS_USERNAME") {
-        Ok(username) => username,
+        Ok(username) => Ok(username),
         Err(_) => {
             println!("To avoid having to enter your username every time please set the environment variable OCD_DTL_RS_USERNAME.");
             println!("Please enter your username:");
             let mut username = String::new();
-            io::stdin()
-                .read_line(&mut username)
-                .expect("Failed to read line");
-            username.trim().to_string()
+            match io::stdin().read_line(&mut username) {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("{}", e),
+                    ))
+                }
+            };
+            Ok(username.trim().to_string())
         }
     }
 }
 
-fn get_password() -> String {
+fn get_password() -> Result<String, io::Error> {
     match env::var("OCD_DTL_RS_PASSWORD") {
-        Ok(password) => password,
+        Ok(password) => Ok(password),
         Err(_) => {
             println!("To avoid having to enter your password every time, please set the environment variable OCD_DTL_RS_PASSWORD.");
             println!("Please enter your password:");
-            let password = rpassword::read_password().unwrap();
-            password.trim().to_string()
+            let password = match rpassword::read_password() {
+                Ok(password) => password,
+                Err(e) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("{}", e),
+                    ))
+                }
+            };
+            Ok(password.trim().to_string())
         }
     }
 }
+
 pub fn get_bloom_from_path(
     bloom_paths: &Vec<PathBuf>,
 ) -> Result<HashMap<String, Bloom<String>>, String> {
@@ -218,6 +247,29 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
         }
     }
     matches
+}
+
+pub fn lookup_values_in_dtl(
+    atom_values: Vec<String>,
+    output: &PathBuf,
+    environment: &String,
+) -> Result<(), String> {
+    let mut dtl: Datalake = match init_datalake(environment) {
+        Ok(dtl) => dtl,
+        Err(e) => return Err(format!("{}", e)),
+    };
+    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+    let csv_result: String = match dtl.bulk_lookup(atom_values) {
+        Ok(csv_result) => {
+            sp.stop_and_persist("✔", "Finished!".into());
+            csv_result
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}", e));
+        }
+    };
+    write_file(output, csv_result)
 }
 
 #[test]
