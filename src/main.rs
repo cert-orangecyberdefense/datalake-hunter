@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[clap(
     name = "Datalake Hunter",
     author = "orangecyberdefense.com",
-    version = "1.0",
+    version = "0.1.0",
     about = "Allow to mass check data from datalake using bloom filters.",
     long_about = None
 )]
