@@ -1,4 +1,5 @@
 use bloomfilter::Bloom;
+use csv::{Reader, ReaderBuilder, Writer};
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
@@ -15,9 +16,7 @@ pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
 }
 
 pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .from_path(path)?;
+    let mut reader = ReaderBuilder::new().has_headers(false).from_path(path)?;
     let mut input: Vec<String> = Vec::new();
     for result in reader.records() {
         let record = result?;
@@ -40,7 +39,7 @@ pub fn write_csv(
     output: &PathBuf,
     no_header: &bool,
 ) -> Result<(), String> {
-    let mut writer: csv::Writer<File> = match csv::Writer::from_path(&output) {
+    let mut writer: Writer<File> = match Writer::from_path(&output) {
         Ok(writer) => writer,
         Err(e) => return Err(format!("{}: {}", &output.display(), e)),
     };
@@ -138,23 +137,29 @@ pub fn create_bloom_from_queryhash(
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
-    let atom_values: Vec<String> = fetch_atom_values_from_dtl(query_hash, dtl)?;
+    let csv_string: String = fetch_atom_values_from_dtl(query_hash, dtl)?;
+    let atom_values = dtl_csv_resp_to_vec(csv_string)?;
     let size: usize = atom_values.len();
 
     let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
     Ok(bloom)
 }
 
-fn fetch_atom_values_from_dtl(
-    query_hash: String,
-    mut dtl: Datalake,
-) -> Result<Vec<String>, String> {
+fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<String, String> {
     let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
 
-    let bulk_search_res = dtl.bulk_search(query_hash, vec!["atom_value".to_string()]);
+    let bulk_search_res = dtl.bulk_search(
+        query_hash,
+        vec![
+            "atom_value".to_string(),
+            ".hashes.md5".to_string(),
+            ".hashes.sha1".to_string(),
+            ".hashes.sha256".to_string(),
+        ],
+    );
     let res = match bulk_search_res {
         Ok(res) => {
-            sp.stop_and_persist("✔", "Finished!".into());
+            sp.stop_and_persist("✔", "Received data from Datalake!".into());
             res
         }
         Err(e) => {
@@ -162,17 +167,39 @@ fn fetch_atom_values_from_dtl(
             return Err(format!("{}", e));
         }
     };
-    let atom_values = dtl_csv_resp_to_vec(res);
-    Ok(atom_values)
+
+    Ok(res)
 }
 
-fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
-    let values: Vec<String> = csv
-        .lines()
-        .filter(|line| !line.contains("atom_value"))
-        .map(|line| line.trim().to_string())
-        .collect();
-    values
+fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
+    let mut vec = Vec::new();
+    let output: PathBuf = PathBuf::from("output.csv");
+    let _ = write_file(&output, csv.clone());
+    let mut rdr = Reader::from_reader(csv.as_bytes());
+    for record in rdr.records() {
+        let record = match record {
+            Ok(record) => record,
+            Err(e) => return Err(format!("{}", e)),
+        };
+        let (atom_value, hashes_md5, hashes_sha1, hashes_sha256): (String, String, String, String) =
+            match record.deserialize(None) {
+                Ok(record) => record,
+                Err(e) => return Err(format!("{}", e)),
+            };
+        if !atom_value.is_empty() && !vec.contains(&atom_value) {
+            vec.push(atom_value);
+        }
+        if !hashes_md5.is_empty() && !vec.contains(&hashes_md5) {
+            vec.push(hashes_md5);
+        }
+        if !hashes_sha1.is_empty() && !vec.contains(&hashes_sha1) {
+            vec.push(hashes_sha1);
+        }
+        if !hashes_sha256.is_empty() && !vec.contains(&hashes_sha256) {
+            vec.push(hashes_sha256);
+        }
+    }
+    Ok(vec)
 }
 
 fn init_datalake(environment: &String) -> Result<Datalake, io::Error> {
@@ -274,18 +301,19 @@ pub fn lookup_values_in_dtl(
 
 #[test]
 fn test_dtl_csv_resp_to_vec() {
-    let csv = "test1\ntest2\ntest3\ntest4\natom_value\ntest6\ntest7\ntest8\ntest9\ntest10";
+    let csv_string: String = "atom_value,.hashes.md5,.hashes.sha1,.hashes.sha256\na50cb264d1979be3b3d766c0a7061372,a50cb264d1979be3b3d766c0a7061372,abe46855df32b6b46b71719e6d2d03c24285d1f4,b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88\n3005c03a7520a2db1f317c7551773355,3005c03a7520a2db1f317c7551773355,f7e5581cfb45c23d88951bd6afb47fc96fc7cd4b,\n188.227.106.122,,,\n1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5,,,1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string();
+    let vec = match dtl_csv_resp_to_vec(csv_string) {
+        Ok(vec) => vec,
+        Err(e) => panic!("{}", e),
+    };
     let expected = vec![
-        "test1".to_string(),
-        "test2".to_string(),
-        "test3".to_string(),
-        "test4".to_string(),
-        "test6".to_string(),
-        "test7".to_string(),
-        "test8".to_string(),
-        "test9".to_string(),
-        "test10".to_string(),
+        "a50cb264d1979be3b3d766c0a7061372".to_string(),
+        "abe46855df32b6b46b71719e6d2d03c24285d1f4".to_string(),
+        "b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88".to_string(),
+        "3005c03a7520a2db1f317c7551773355".to_string(),
+        "f7e5581cfb45c23d88951bd6afb47fc96fc7cd4b".to_string(),
+        "188.227.106.122".to_string(),
+        "1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string(),
     ];
-    let res = dtl_csv_resp_to_vec(csv.to_string());
-    assert_eq!(res, expected)
+    assert_eq!(vec, expected);
 }
