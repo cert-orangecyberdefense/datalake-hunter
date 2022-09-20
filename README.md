@@ -38,6 +38,8 @@ Two types of input are available to create bloom filters:
 - A file with a value on each line
 - A queryhash from Datalake
 
+Created bloom filters will be located in the current directory and use the queryhash or the source file's name with the `.bloom` extension if the output flag isn't set.
+
 Check `dtl_hunter create -h` for information on the available options for this sub-command.
 
 ### Example
@@ -51,7 +53,7 @@ dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
 ### Options
 
 - `-f` | `--file` : Path to the file to use to create a bloom filter. One value per line.
-- `-o` | `--output` : Path to the file to output the created bloom filter.
+- `-o` | `--output` : Path to the file to output the created bloom filter. Default is `current_dir/<querryhash>|<filename>.bloom`.
 - `-q` | `--queryhash` : Query hash from which to build a bloom filter.
 - `-r` | `--rate` : Rate of false positive. Can be between `0.0` and `1.0`. The lower the rate the bigger the bloom filter will be. Default is `0.00001`.
 
