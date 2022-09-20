@@ -174,8 +174,6 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
     let mut sp = Spinner::new(Spinners::Line, "Extracting data...".into());
     let mut vec = Vec::new();
-    let output: PathBuf = PathBuf::from("output.csv");
-    let _ = write_file(&output, csv.clone());
     let mut rdr = Reader::from_reader(csv.as_bytes());
     for record in rdr.records() {
         let record = match record {
