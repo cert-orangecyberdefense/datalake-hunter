@@ -173,7 +173,7 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
 
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
     let mut sp = Spinner::new(Spinners::Line, "Extracting data...".into());
-    let mut vec = Vec::new();
+    let mut atom_values = Vec::new();
     let mut rdr = Reader::from_reader(csv.as_bytes());
     for record in rdr.records() {
         let record = match record {
@@ -191,24 +191,26 @@ fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
                     return Err(format!("{}", e));
                 }
             };
-        if !atom_value.is_empty() && !vec.contains(&atom_value) {
-            vec.push(atom_value);
+        if !atom_value.is_empty() {
+            atom_values.push(atom_value);
         }
-        if !hashes_md5.is_empty() && !vec.contains(&hashes_md5) {
-            vec.push(hashes_md5);
+        if !hashes_md5.is_empty() {
+            atom_values.push(hashes_md5);
         }
-        if !hashes_sha1.is_empty() && !vec.contains(&hashes_sha1) {
-            vec.push(hashes_sha1);
+        if !hashes_sha1.is_empty() {
+            atom_values.push(hashes_sha1);
         }
-        if !hashes_sha256.is_empty() && !vec.contains(&hashes_sha256) {
-            vec.push(hashes_sha256);
+        if !hashes_sha256.is_empty() {
+            atom_values.push(hashes_sha256);
         }
     }
+    atom_values.sort();
+    atom_values.dedup();
     sp.stop_and_persist(
         "✔",
         "Successfully extracted data from Datalake response!".into(),
     );
-    Ok(vec)
+    Ok(atom_values)
 }
 
 fn init_datalake(environment: &String) -> Result<Datalake, io::Error> {
