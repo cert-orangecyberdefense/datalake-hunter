@@ -2,7 +2,8 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, get_bloom_from_path, read_input_file, write_bloom_to_file, write_csv,
+    check_val_in_bloom, get_bloom_from_path, lookup_values_in_dtl, read_input_file,
+    write_bloom_to_file, write_csv,
 };
 use log::{error, info, warn};
 use std::collections::HashMap;
@@ -57,7 +58,7 @@ struct Check {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to file containing the value to check, one value per line."
+        help = "Path to file containing the values to check, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -115,7 +116,7 @@ struct Create {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to the file to use to create the bloom filter. One value per line."
+        help = "Path to file to use to create a bloom filter, one value per line or the values from the first column in a CSV."
     )]
     file: Option<std::path::PathBuf>,
     #[clap(
@@ -137,7 +138,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a CSV file containing the values to lookup in Datalake."
+        help = "Path to file containing the values to lookup, one value per line or the values from the first column in a CSV."
     )]
     input: PathBuf,
     #[clap(
@@ -145,7 +146,7 @@ struct Lookup {
         long,
         value_parser,
         forbid_empty_values = true,
-        help = "Path to a CSV file in which to output the result."
+        help = "Path to the file in which to output the result."
     )]
     output: PathBuf,
 }
@@ -175,9 +176,7 @@ fn main() {
     match &cli.command {
         Commands::Check(args) => check_command(args, &cli),
         Commands::Create(args) => create_command(args, &cli),
-        Commands::Lookup(_args) => {
-            unimplemented!()
-        }
+        Commands::Lookup(args) => lookup_command(args, &cli),
     }
 }
 
@@ -280,12 +279,8 @@ fn manage_check_output(
     nb_matches: usize,
 ) {
     info!(
-        "{} - {}",
+        "{}",
         format!("{} matches", &nb_matches).bright_blue().bold(),
-        "Be advised that some matches might be false positives."
-            .yellow()
-            .italic()
-            .dimmed()
     );
     if let Some(output) = output_path {
         if nb_matches > 0 {
@@ -309,6 +304,28 @@ fn manage_check_output(
                 println!("{},{}", val, filename);
             }
         }
+    }
+}
+
+fn lookup_command(args: &Lookup, cli: &Cli) {
+    let input: Vec<String> = match read_input_file(&args.input) {
+        Ok(input) => input,
+        Err(e) => {
+            error!("{}: {}", &args.input.display(), e);
+            return;
+        }
+    };
+    match lookup_values_in_dtl(input, &args.output, &cli.environment) {
+        Ok(()) => {
+            println!(
+                "{}{}",
+                "Successfully looked up values in Datalake, results are saved at path: "
+                    .green()
+                    .bold(),
+                &args.output.display()
+            );
+        }
+        Err(e) => error!("{}", e),
     }
 }
 

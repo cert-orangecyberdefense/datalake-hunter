@@ -14,7 +14,7 @@ serde = "1.0.143"
 ron = "0.8.0"
 colored = "2.0.0"
 csv = "1.1.6"
-ocd_datalake_rs = "0.1.0"
+ocd_datalake_rs = "0.1.1"
 rpassword = "7.0.0"
 spinners = "4.1.0"
 [dev-dependencies]

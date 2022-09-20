@@ -11,6 +11,11 @@
 ```
 
 A CLI program to create bloom filters from Datalake and check for matches from a list of value, even when offline.
+
+A Bloom filter is a space-efficient probabilistic data structure that is used to test whether an element is a member of a set. False positive matches are possible, but false negatives are not – in other words, a query returns either "possibly in set" or "definitely not in set".
+
+For more informations about bloom filters and why they can produce false positives, you can watch the following [video on youtube.](https://youtu.be/V3pzxngeLqw)
+
 Bloom filters are created using the [bloomfilter](https://crates.io/crates/bloomfilter) crate and saved using the RON format.
 
 ## Usage
@@ -52,7 +57,7 @@ dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
 
 ### Options
 
-- `-f` | `--file` : Path to the file to use to create a bloom filter. One value per line.
+- `-f` | `--file` : Path to the file to use to create a bloom filter, one value per line or the values from the first column in a CSV.
 - `-o` | `--output` : Path to the file to output the created bloom filter. Default is `current_dir/<querryhash>|<filename>.bloom`.
 - `-q` | `--queryhash` : Query hash from which to build a bloom filter.
 - `-r` | `--rate` : Rate of false positive. Can be between `0.0` and `1.0`. The lower the rate the bigger the bloom filter will be. Default is `0.00001`.
@@ -60,7 +65,6 @@ dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
 ## Check command
 
 Allow users to checks if values in a provided file can be found in bloom filters or in Datalake using query hashes.
-
 
 Matched values can also be looked up on Datalake using the `-l` flag with the path to the file in which to save the results. See below for more informations on options.
 
@@ -76,7 +80,7 @@ The output can be saved into a file using the `-o` flag and providing the path t
 
 When a query hash is provided, it will be used as the name of the bloom filter in the csv file.
 
-⚠️ Please be aware that depending on the rate of false positive used when creating your bloom filters, there is a chance of false positive matches.
+⚠️ Please be aware that bloom filters **can and will produce false positive matches** but **will not produce false negative**. The default false positive rate for our bloom filters is `0.00001`, meaning  1 false positive in 100 000. You are free to change this rate but there will always be a chance of false positive result. Please check the project description above for more information.
 
 ## Example
 
@@ -90,8 +94,26 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 
 - `-q` | `--queryhash` : Query hash from which to build a bloom filter. Required if no bloom filter files are provided.
 - `-b` | `--bloom` : Path to a bloom filter to be used for the check. Required if no query hashes are provided.
-- `-i` | `--input` : Path to file containing the value to check, one value per line.
+- `-i` | `--input` : Path to file containing the value to check, one value per line or the values from the first column in a CSV.
 - `-l` | `--lookup` : Path to the file in which Lookup matched values should be written.
 - `-o` | `--output` : Path to file to which the list of matching inputs will be pushed to as a csv file.
 - `--quiet` : Silence the output of matched value to the stdout.
 - `--no-header` : Remove the header from the CSV file.
+
+## Lookup Command
+
+Allow users to look up values in Datalake to get more information. It can be used after using the Check command to get details on the matched threats. This command does not interract with bloom filters.
+
+Provides data from Datalake in a CSV format.
+
+### Example
+
+Using the following command, the values matched from a check command and saved in `ip.csv` will be looked up on Datalake. The data fetched from Datalake will then be saved in `output.csv`.
+```(shell)
+dtl_hunter lookup -i ip.csv -o output.csv
+```
+
+### Options
+
+- `-i` | `--input` : Path to file containing the value to lookup, one value per line or the values from the first column in a CSV.
+- `-o` | `--output` : Path to the file in which to output the result.
