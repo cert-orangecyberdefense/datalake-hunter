@@ -12,7 +12,7 @@ use std::path::PathBuf;
 #[clap(
     name = "Datalake Hunter",
     author = "orangecyberdefense.com",
-    version = "1.0",
+    version = "0.1.0",
     about = "Allow to mass check data from datalake using bloom filters.",
     long_about = None
 )]
@@ -110,7 +110,7 @@ struct Create {
         forbid_empty_values = true,
         help = "Path to the file to output the created bloom filter."
     )]
-    output: PathBuf,
+    output: Option<PathBuf>,
     #[clap(
         short,
         long,
@@ -189,8 +189,27 @@ fn create_command(args: &Create, cli: &Cli) {
         error!("Unexpected case");
         return;
     };
+    let output_path: PathBuf = if let Some(path) = args.output.clone() {
+        path
+    } else {
+        match (&args.queryhash, &args.file) {
+            (Some(queryhash), None) => {
+                let mut path = PathBuf::from(queryhash);
+                path.set_extension("bloom");
+                path
+            }
+            (None, Some(file)) => {
+                let mut path = PathBuf::from(file);
+                path.set_extension("bloom");
+                path
+            }
+            (_, _) => {
+                panic!("Unexpected case")
+            }
+        }
+    };
     match bloom_result {
-        Ok(bloom) => write_bloom(bloom, &args.output),
+        Ok(bloom) => write_bloom(bloom, &output_path),
         Err(e) => {
             error!("Error while creating bloom filter: {}", e)
         }
