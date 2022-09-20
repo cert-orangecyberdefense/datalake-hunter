@@ -317,7 +317,7 @@ fn test_dtl_csv_resp_to_vec() {
         Ok(vec) => vec,
         Err(e) => panic!("{}", e),
     };
-    let expected = vec![
+    let mut expected = vec![
         "a50cb264d1979be3b3d766c0a7061372".to_string(),
         "abe46855df32b6b46b71719e6d2d03c24285d1f4".to_string(),
         "b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88".to_string(),
@@ -326,5 +326,6 @@ fn test_dtl_csv_resp_to_vec() {
         "188.227.106.122".to_string(),
         "1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string(),
     ];
+    expected.sort();
     assert_eq!(vec, expected);
 }
