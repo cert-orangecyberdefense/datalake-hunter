@@ -159,7 +159,7 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
     );
     let res = match bulk_search_res {
         Ok(res) => {
-            sp.stop_and_persist("✔", "Received data from Datalake!".into());
+            sp.stop_and_persist("✔", "Successfully received data from Datalake!".into());
             res
         }
         Err(e) => {
@@ -172,6 +172,7 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
 }
 
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
+    let mut sp = Spinner::new(Spinners::Line, "Extracting data...".into());
     let mut vec = Vec::new();
     let output: PathBuf = PathBuf::from("output.csv");
     let _ = write_file(&output, csv.clone());
@@ -179,12 +180,18 @@ fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
     for record in rdr.records() {
         let record = match record {
             Ok(record) => record,
-            Err(e) => return Err(format!("{}", e)),
+            Err(e) => {
+                sp.stop_and_persist("✗", "Failed.".into());
+                return Err(format!("{}", e));
+            }
         };
         let (atom_value, hashes_md5, hashes_sha1, hashes_sha256): (String, String, String, String) =
             match record.deserialize(None) {
                 Ok(record) => record,
-                Err(e) => return Err(format!("{}", e)),
+                Err(e) => {
+                    sp.stop_and_persist("✗", "Failed.".into());
+                    return Err(format!("{}", e));
+                }
             };
         if !atom_value.is_empty() && !vec.contains(&atom_value) {
             vec.push(atom_value);
@@ -199,6 +206,10 @@ fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
             vec.push(hashes_sha256);
         }
     }
+    sp.stop_and_persist(
+        "✔",
+        "Successfully extracted data from Datalake response!".into(),
+    );
     Ok(vec)
 }
 
