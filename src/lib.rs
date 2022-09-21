@@ -2,7 +2,7 @@ use bloomfilter::Bloom;
 use csv::{Reader, ReaderBuilder, Writer};
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -123,7 +123,9 @@ pub fn create_bloom_from_file(
         Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
     };
     let size: usize = input.len();
-
+    if size == 0 {
+        return Err(format!("{}: No data found in file", input_path.display()));
+    }
     let bloom: Bloom<String> = create_bloom(input, size, positive_rate);
     Ok(bloom)
 }
@@ -138,9 +140,26 @@ pub fn create_bloom_from_queryhash(
         Err(e) => return Err(format!("{}", e)),
     };
     let csv_string: String = fetch_atom_values_from_dtl(query_hash, dtl)?;
-    let atom_values = dtl_csv_resp_to_vec(csv_string)?;
-    let size: usize = atom_values.len();
+    let _ = write_file(&PathBuf::from("bulk_search.csv"), csv_string.clone());
+    let mut sp = Spinner::with_timer(Spinners::Line, "Extracting data...".into());
+    let atom_values = match dtl_csv_resp_to_vec(csv_string) {
+        Ok(atom_values) => {
+            sp.stop_and_persist(
+                "✔",
+                "Successfully extracted data from Datalake response!".into(),
+            );
+            atom_values
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}", e));
+        }
+    };
 
+    let size: usize = atom_values.len();
+    if size == 0 {
+        return Err("No data found in Datalake!".into());
+    }
     let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
     Ok(bloom)
 }
@@ -172,44 +191,21 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
 }
 
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
-    let mut sp = Spinner::new(Spinners::Line, "Extracting data...".into());
-    let mut atom_values = Vec::new();
+    let mut value_set: HashSet<String> = HashSet::new();
+
     let mut rdr = Reader::from_reader(csv.as_bytes());
     for record in rdr.records() {
-        let record = match record {
-            Ok(record) => record,
-            Err(e) => {
-                sp.stop_and_persist("✗", "Failed.".into());
-                return Err(format!("{}", e));
-            }
-        };
+        let record = record.unwrap();
         let (atom_value, hashes_md5, hashes_sha1, hashes_sha256): (String, String, String, String) =
-            match record.deserialize(None) {
-                Ok(record) => record,
-                Err(e) => {
-                    sp.stop_and_persist("✗", "Failed.".into());
-                    return Err(format!("{}", e));
-                }
-            };
-        if !atom_value.is_empty() {
-            atom_values.push(atom_value);
-        }
-        if !hashes_md5.is_empty() {
-            atom_values.push(hashes_md5);
-        }
-        if !hashes_sha1.is_empty() {
-            atom_values.push(hashes_sha1);
-        }
-        if !hashes_sha256.is_empty() {
-            atom_values.push(hashes_sha256);
+            record.deserialize(None).unwrap();
+        for hash in [atom_value, hashes_md5, hashes_sha1, hashes_sha256] {
+            if !hash.is_empty() {
+                value_set.insert(hash);
+            }
         }
     }
-    atom_values.sort();
-    atom_values.dedup();
-    sp.stop_and_persist(
-        "✔",
-        "Successfully extracted data from Datalake response!".into(),
-    );
+    let atom_values = Vec::from_iter(value_set);
+
     Ok(atom_values)
 }
 
@@ -313,7 +309,7 @@ pub fn lookup_values_in_dtl(
 #[test]
 fn test_dtl_csv_resp_to_vec() {
     let csv_string: String = "atom_value,.hashes.md5,.hashes.sha1,.hashes.sha256\na50cb264d1979be3b3d766c0a7061372,a50cb264d1979be3b3d766c0a7061372,abe46855df32b6b46b71719e6d2d03c24285d1f4,b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88\n3005c03a7520a2db1f317c7551773355,3005c03a7520a2db1f317c7551773355,f7e5581cfb45c23d88951bd6afb47fc96fc7cd4b,\n188.227.106.122,,,\n1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5,,,1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string();
-    let vec = match dtl_csv_resp_to_vec(csv_string) {
+    let mut vec = match dtl_csv_resp_to_vec(csv_string) {
         Ok(vec) => vec,
         Err(e) => panic!("{}", e),
     };
@@ -327,5 +323,6 @@ fn test_dtl_csv_resp_to_vec() {
         "1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string(),
     ];
     expected.sort();
+    vec.sort();
     assert_eq!(vec, expected);
 }
