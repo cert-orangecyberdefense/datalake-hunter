@@ -6,6 +6,7 @@ use dtl_hunter::{
     write_bloom_to_file, write_csv,
 };
 use log::{error, info, warn};
+use spinners::{Spinner, Spinners};
 use std::collections::HashMap;
 use std::path::PathBuf;
 #[derive(Parser)]
@@ -231,7 +232,7 @@ fn write_bloom(bloom: Bloom<String>, output: &PathBuf) {
     }
 }
 
-fn check_command(args: &Check, _cli: &Cli) {
+fn check_command(args: &Check, cli: &Cli) {
     let input: Vec<String> = match read_input_file(&args.input) {
         Ok(input) => input,
         Err(e) => {
@@ -256,19 +257,30 @@ fn check_command(args: &Check, _cli: &Cli) {
 
     let mut bloom_matches: HashMap<String, Vec<String>> = HashMap::new();
     let mut nb_matches: usize = 0;
-
+    let mut all_matches: Vec<String> = Vec::new();
+    let mut spinner = Spinner::new(Spinners::Line, "Checking values".to_string());
     for (filename, bloom) in blooms {
         let matches: Vec<String> = check_val_in_bloom(bloom, &input);
+        if args.lookup.is_some() {
+            all_matches.extend(matches.clone());
+        }
         nb_matches += matches.len();
         bloom_matches.insert(filename, matches);
     }
+    spinner.stop_and_persist("✔", "Done checking values.".into());
     manage_check_output(
         &args.output,
         bloom_matches,
         args.quiet,
         args.no_header,
         nb_matches,
-    )
+    );
+
+    if let Some(lookup_path) = &args.lookup {
+        if !all_matches.is_empty() {
+            manage_lookup(all_matches, lookup_path, &cli.environment);
+        }
+    }
 }
 
 fn manage_check_output(
@@ -315,14 +327,18 @@ fn lookup_command(args: &Lookup, cli: &Cli) {
             return;
         }
     };
-    match lookup_values_in_dtl(input, &args.output, &cli.environment) {
+    manage_lookup(input, &args.output, &cli.environment)
+}
+
+fn manage_lookup(input: Vec<String>, output: &PathBuf, environment: &String) {
+    match lookup_values_in_dtl(input, output, environment) {
         Ok(()) => {
             info!(
                 "{}{}",
                 "Successfully looked up values in Datalake, results are saved at path: "
                     .green()
                     .bold(),
-                &args.output.display()
+                output.display()
             );
         }
         Err(e) => error!("{}", e),
