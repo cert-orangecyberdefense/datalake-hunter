@@ -200,9 +200,9 @@ fn create_command(args: &Create, cli: &Cli) {
 fn write_bloom(bloom: Bloom<String>, output: &PathBuf) {
     match write_bloom_to_file(bloom, output) {
         Ok(()) => {
-            println!(
+            info!(
                 "{}{}",
-                "Successfully create the bloomfilter at path: "
+                "Successfully created the bloomfilter at path: "
                     .green()
                     .bold(),
                 &output.display()
@@ -298,7 +298,7 @@ fn lookup_command(args: &Lookup, cli: &Cli) {
     };
     match lookup_values_in_dtl(input, &args.output, &cli.environment) {
         Ok(()) => {
-            println!(
+            info!(
                 "{}{}",
                 "Successfully looked up values in Datalake, results are saved at path: "
                     .green()

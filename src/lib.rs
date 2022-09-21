@@ -107,10 +107,12 @@ pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
 }
 
 pub fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
+    let mut spinner = Spinner::with_timer(Spinners::Line, "Creating bloom filter".to_string());
     let mut bloom: Bloom<String> = Bloom::new_for_fp_rate(size, positive_rate);
     for value in input {
         bloom.set(&value);
     }
+    spinner.stop_and_persist("✔", "Finished creating the Bloom filter.".into());
     bloom
 }
 
@@ -118,9 +120,16 @@ pub fn create_bloom_from_file(
     input_path: &PathBuf,
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
+    let mut spinner = Spinner::with_timer(Spinners::Line, "Reading input file...".to_string());
     let input: Vec<String> = match read_input_file(input_path) {
-        Ok(input) => input,
-        Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
+        Ok(input) => {
+            spinner.stop_and_persist("✔", "Successfully extracted data from file.".into());
+            input
+        }
+        Err(e) => {
+            spinner.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}: {}", input_path.display(), e));
+        }
     };
     let size: usize = input.len();
     if size == 0 {
@@ -165,7 +174,7 @@ pub fn create_bloom_from_queryhash(
 }
 
 fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<String, String> {
-    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+    let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
 
     let bulk_search_res = dtl.bulk_search(
         query_hash,
@@ -292,7 +301,7 @@ pub fn lookup_values_in_dtl(
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
-    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+    let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
     let csv_result: String = match dtl.bulk_lookup(atom_values) {
         Ok(csv_result) => {
             sp.stop_and_persist("✔", "Finished!".into());
