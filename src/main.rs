@@ -257,12 +257,12 @@ fn check_command(args: &Check, cli: &Cli) {
 
     let mut bloom_matches: HashMap<String, Vec<String>> = HashMap::new();
     let mut nb_matches: usize = 0;
-    let mut all_matches: Vec<String> = Vec::new();
+    let mut matches_list: Vec<String> = Vec::new();
     let mut spinner = Spinner::new(Spinners::Line, "Checking values".to_string());
     for (filename, bloom) in blooms {
         let matches: Vec<String> = check_val_in_bloom(bloom, &input);
         if args.lookup.is_some() {
-            all_matches.extend(matches.clone());
+            matches_list.extend(matches.clone());
         }
         nb_matches += matches.len();
         bloom_matches.insert(filename, matches);
@@ -277,8 +277,8 @@ fn check_command(args: &Check, cli: &Cli) {
     );
 
     if let Some(lookup_path) = &args.lookup {
-        if !all_matches.is_empty() {
-            manage_lookup(all_matches, lookup_path, &cli.environment);
+        if !matches_list.is_empty() {
+            manage_lookup(matches_list, lookup_path, &cli.environment);
         }
     }
 }

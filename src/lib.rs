@@ -149,7 +149,6 @@ pub fn create_bloom_from_queryhash(
         Err(e) => return Err(format!("{}", e)),
     };
     let csv_string: String = fetch_atom_values_from_dtl(query_hash, dtl)?;
-    let _ = write_file(&PathBuf::from("bulk_search.csv"), csv_string.clone());
     let mut sp = Spinner::with_timer(Spinners::Line, "Extracting data...".into());
     let atom_values = match dtl_csv_resp_to_vec(csv_string) {
         Ok(atom_values) => {
@@ -185,10 +184,10 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
             ".hashes.sha256".to_string(),
         ],
     );
-    let res = match bulk_search_res {
-        Ok(res) => {
+    let atom_values = match bulk_search_res {
+        Ok(atom_values) => {
             sp.stop_and_persist("✔", "Successfully received data from Datalake!".into());
-            res
+            atom_values
         }
         Err(e) => {
             sp.stop_and_persist("✗", "Failed.".into());
@@ -196,7 +195,7 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
         }
     };
 
-    Ok(res)
+    Ok(atom_values)
 }
 
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
