@@ -161,7 +161,7 @@ pub fn create_bloom_from_queryhash(
         }
         Err(e) => {
             sp.stop_and_persist("✗", "Failed.".into());
-            return Err(format!("{}", e));
+            return Err(e);
         }
     };
 
@@ -202,8 +202,8 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
 fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
     let mut value_set: HashSet<String> = HashSet::new();
 
-    let mut rdr = Reader::from_reader(csv.as_bytes());
-    for record in rdr.records() {
+    let mut reader = Reader::from_reader(csv.as_bytes());
+    for record in reader.records() {
         let record = record.unwrap();
         let (atom_value, hashes_md5, hashes_sha1, hashes_sha256): (String, String, String, String) =
             record.deserialize(None).unwrap();
