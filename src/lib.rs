@@ -1,7 +1,8 @@
 use bloomfilter::Bloom;
+use csv::{Reader, ReaderBuilder, Writer};
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -15,9 +16,7 @@ pub fn get_filename_from_path(path: &Path) -> Result<String, String> {
 }
 
 pub fn read_input_file(path: &PathBuf) -> Result<Vec<String>, io::Error> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .from_path(path)?;
+    let mut reader = ReaderBuilder::new().has_headers(false).from_path(path)?;
     let mut input: Vec<String> = Vec::new();
     for result in reader.records() {
         let record = result?;
@@ -40,7 +39,7 @@ pub fn write_csv(
     output: &PathBuf,
     no_header: &bool,
 ) -> Result<(), String> {
-    let mut writer: csv::Writer<File> = match csv::Writer::from_path(&output) {
+    let mut writer: Writer<File> = match Writer::from_path(&output) {
         Ok(writer) => writer,
         Err(e) => return Err(format!("{}: {}", &output.display(), e)),
     };
@@ -108,10 +107,12 @@ pub fn serialize_bloom(bloom: &Bloom<String>) -> Result<String, String> {
 }
 
 pub fn create_bloom(input: Vec<String>, size: usize, positive_rate: f64) -> Bloom<String> {
+    let mut spinner = Spinner::with_timer(Spinners::Line, "Creating bloom filter".to_string());
     let mut bloom: Bloom<String> = Bloom::new_for_fp_rate(size, positive_rate);
     for value in input {
         bloom.set(&value);
     }
+    spinner.stop_and_persist("✔", "Finished creating the Bloom filter.".into());
     bloom
 }
 
@@ -119,12 +120,21 @@ pub fn create_bloom_from_file(
     input_path: &PathBuf,
     positive_rate: f64,
 ) -> Result<Bloom<String>, String> {
+    let mut spinner = Spinner::with_timer(Spinners::Line, "Reading input file...".to_string());
     let input: Vec<String> = match read_input_file(input_path) {
-        Ok(input) => input,
-        Err(e) => return Err(format!("{}: {}", input_path.display(), e)),
+        Ok(input) => {
+            spinner.stop_and_persist("✔", "Successfully extracted data from file.".into());
+            input
+        }
+        Err(e) => {
+            spinner.stop_and_persist("✗", "Failed.".into());
+            return Err(format!("{}: {}", input_path.display(), e));
+        }
     };
     let size: usize = input.len();
-
+    if size == 0 {
+        return Err(format!("{}: No data found in file", input_path.display()));
+    }
     let bloom: Bloom<String> = create_bloom(input, size, positive_rate);
     Ok(bloom)
 }
@@ -138,23 +148,46 @@ pub fn create_bloom_from_queryhash(
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
-    let atom_values: Vec<String> = fetch_atom_values_from_dtl(query_hash, dtl)?;
-    let size: usize = atom_values.len();
+    let csv_string: String = fetch_atom_values_from_dtl(query_hash, dtl)?;
+    let _ = write_file(&PathBuf::from("bulk_search.csv"), csv_string.clone());
+    let mut sp = Spinner::with_timer(Spinners::Line, "Extracting data...".into());
+    let atom_values = match dtl_csv_resp_to_vec(csv_string) {
+        Ok(atom_values) => {
+            sp.stop_and_persist(
+                "✔",
+                "Successfully extracted data from Datalake response!".into(),
+            );
+            atom_values
+        }
+        Err(e) => {
+            sp.stop_and_persist("✗", "Failed.".into());
+            return Err(e);
+        }
+    };
 
+    let size: usize = atom_values.len();
+    if size == 0 {
+        return Err("No data found in Datalake!".into());
+    }
     let bloom: Bloom<String> = create_bloom(atom_values, size, positive_rate);
     Ok(bloom)
 }
 
-fn fetch_atom_values_from_dtl(
-    query_hash: String,
-    mut dtl: Datalake,
-) -> Result<Vec<String>, String> {
-    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<String, String> {
+    let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
 
-    let bulk_search_res = dtl.bulk_search(query_hash, vec!["atom_value".to_string()]);
+    let bulk_search_res = dtl.bulk_search(
+        query_hash,
+        vec![
+            "atom_value".to_string(),
+            ".hashes.md5".to_string(),
+            ".hashes.sha1".to_string(),
+            ".hashes.sha256".to_string(),
+        ],
+    );
     let res = match bulk_search_res {
         Ok(res) => {
-            sp.stop_and_persist("✔", "Finished!".into());
+            sp.stop_and_persist("✔", "Successfully received data from Datalake!".into());
             res
         }
         Err(e) => {
@@ -162,17 +195,27 @@ fn fetch_atom_values_from_dtl(
             return Err(format!("{}", e));
         }
     };
-    let atom_values = dtl_csv_resp_to_vec(res);
-    Ok(atom_values)
+
+    Ok(res)
 }
 
-fn dtl_csv_resp_to_vec(csv: String) -> Vec<String> {
-    let values: Vec<String> = csv
-        .lines()
-        .filter(|line| !line.contains("atom_value"))
-        .map(|line| line.trim().to_string())
-        .collect();
-    values
+fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
+    let mut value_set: HashSet<String> = HashSet::new();
+
+    let mut reader = Reader::from_reader(csv.as_bytes());
+    for record in reader.records() {
+        let record = record.unwrap();
+        let (atom_value, hashes_md5, hashes_sha1, hashes_sha256): (String, String, String, String) =
+            record.deserialize(None).unwrap();
+        for hash in [atom_value, hashes_md5, hashes_sha1, hashes_sha256] {
+            if !hash.is_empty() {
+                value_set.insert(hash);
+            }
+        }
+    }
+    let atom_values = Vec::from_iter(value_set);
+
+    Ok(atom_values)
 }
 
 fn init_datalake(environment: &String) -> Result<Datalake, io::Error> {
@@ -258,7 +301,7 @@ pub fn lookup_values_in_dtl(
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
-    let mut sp = Spinner::new(Spinners::Line, "Waiting for data from Datalake...".into());
+    let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
     let csv_result: String = match dtl.bulk_lookup(atom_values) {
         Ok(csv_result) => {
             sp.stop_and_persist("✔", "Finished!".into());
@@ -274,18 +317,21 @@ pub fn lookup_values_in_dtl(
 
 #[test]
 fn test_dtl_csv_resp_to_vec() {
-    let csv = "test1\ntest2\ntest3\ntest4\natom_value\ntest6\ntest7\ntest8\ntest9\ntest10";
-    let expected = vec![
-        "test1".to_string(),
-        "test2".to_string(),
-        "test3".to_string(),
-        "test4".to_string(),
-        "test6".to_string(),
-        "test7".to_string(),
-        "test8".to_string(),
-        "test9".to_string(),
-        "test10".to_string(),
+    let csv_string: String = "atom_value,.hashes.md5,.hashes.sha1,.hashes.sha256\na50cb264d1979be3b3d766c0a7061372,a50cb264d1979be3b3d766c0a7061372,abe46855df32b6b46b71719e6d2d03c24285d1f4,b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88\n3005c03a7520a2db1f317c7551773355,3005c03a7520a2db1f317c7551773355,f7e5581cfb45c23d88951bd6afb47fc96fc7cd4b,\n188.227.106.122,,,\n1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5,,,1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string();
+    let mut vec = match dtl_csv_resp_to_vec(csv_string) {
+        Ok(vec) => vec,
+        Err(e) => panic!("{}", e),
+    };
+    let mut expected = vec![
+        "a50cb264d1979be3b3d766c0a7061372".to_string(),
+        "abe46855df32b6b46b71719e6d2d03c24285d1f4".to_string(),
+        "b46e51a2e757f4d75f1a1fff1165c6a0503b687db6c7e672021dcaa9bedf2d88".to_string(),
+        "3005c03a7520a2db1f317c7551773355".to_string(),
+        "f7e5581cfb45c23d88951bd6afb47fc96fc7cd4b".to_string(),
+        "188.227.106.122".to_string(),
+        "1cdadad999b9e70c87560fcd9821c2b0fa4c0a92b8f79bded44935dd4fdc76a5".to_string(),
     ];
-    let res = dtl_csv_resp_to_vec(csv.to_string());
-    assert_eq!(res, expected)
+    expected.sort();
+    vec.sort();
+    assert_eq!(vec, expected);
 }
