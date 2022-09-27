@@ -2,8 +2,8 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, get_bloom_from_path, lookup_values_in_dtl, read_input_file,
-    write_bloom_to_file, write_csv,
+    check_val_in_bloom, get_bloom_from_paths, get_bloom_from_queryhashes, lookup_values_in_dtl,
+    read_input_file, write_bloom_to_file, write_csv,
 };
 use log::{error, info, warn};
 use std::collections::HashMap;
@@ -68,7 +68,7 @@ struct Check {
         forbid_empty_values = true,
         help = "Path to a bloom filter to be used for the check. Required if no query hashes are provided"
     )]
-    bloom: Option<Vec<std::path::PathBuf>>,
+    bloom: Option<Vec<PathBuf>>,
     #[clap(
         short,
         long,
@@ -76,7 +76,7 @@ struct Check {
         forbid_empty_values = true,
         help = "Query hash from which to build a bloom filter. Required if no bloom filter files are provided."
     )]
-    queryhash: Option<String>,
+    queryhash: Option<Vec<String>>,
     #[clap(
         short,
         long,
@@ -89,6 +89,20 @@ struct Check {
     quiet: bool,
     #[clap(long = "no-header", help = "Remove the header in the output csv file.")]
     no_header: bool,
+    #[clap(
+        short,
+        long,
+        value_parser =  validate_false_positive,
+        forbid_empty_values = true,
+        default_value = "0.00001",
+        help = "Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be."
+    )]
+    rate: f64,
+    #[clap(
+        long,
+        help = "Enable saving bloom filters created from the query hashes"
+    )]
+    save: bool,
 }
 
 #[derive(Args)]
@@ -231,7 +245,7 @@ fn write_bloom(bloom: Bloom<String>, output: &PathBuf) {
     }
 }
 
-fn check_command(args: &Check, _cli: &Cli) {
+fn check_command(args: &Check, cli: &Cli) {
     let input: Vec<String> = match read_input_file(&args.input) {
         Ok(input) => input,
         Err(e) => {
@@ -243,8 +257,8 @@ fn check_command(args: &Check, _cli: &Cli) {
     let mut blooms: HashMap<String, Bloom<String>> = HashMap::new();
 
     if let Some(bloom_paths) = &args.bloom {
-        let file_blooms = match get_bloom_from_path(bloom_paths) {
-            Ok(file_bloom) => file_bloom,
+        let file_blooms = match get_bloom_from_paths(bloom_paths) {
+            Ok(file_blooms) => file_blooms,
             Err(e) => {
                 error!("{}", e);
                 return;
@@ -252,7 +266,24 @@ fn check_command(args: &Check, _cli: &Cli) {
         };
         blooms.extend(file_blooms);
     }
-    if args.queryhash.is_some() {}
+    if let Some(queryhashes) = &args.queryhash {
+        let queryhash_blooms =
+            match get_bloom_from_queryhashes(queryhashes, &cli.environment, args.rate) {
+                Ok(queryhash_bloom) => queryhash_bloom,
+                Err(e) => {
+                    error!("{}", e);
+                    return;
+                }
+            };
+        if args.save {
+            for (queryhash, bloom) in &queryhash_blooms {
+                let mut path = PathBuf::from(queryhash);
+                path.set_extension("bloom");
+                write_bloom(bloom.to_owned(), &path);
+            }
+        }
+        blooms.extend(queryhash_blooms);
+    }
 
     let mut bloom_matches: HashMap<String, Vec<String>> = HashMap::new();
     let mut nb_matches: usize = 0;
