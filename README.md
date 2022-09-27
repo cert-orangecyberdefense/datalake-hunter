@@ -99,6 +99,9 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 - `-o` | `--output` : Path to file to which the list of matching inputs will be pushed to as a csv file.
 - `--quiet` : Silence the output of matched value to the stdout.
 - `--no-header` : Remove the header from the CSV file.
+- `-r` | `--rate` : Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be. `--save` needs to be set to save the bloom filter. [default: 0.00001]
+- `--save` : Enable saving bloom filters created from the query hashes
+
 
 ## Lookup Command
 

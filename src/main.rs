@@ -95,7 +95,7 @@ struct Check {
         value_parser =  validate_false_positive,
         forbid_empty_values = true,
         default_value = "0.00001",
-        help = "Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be."
+        help = "Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be. `--save` needs to be set to save the bloom filter."
     )]
     rate: f64,
     #[clap(
