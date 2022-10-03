@@ -175,7 +175,7 @@ pub fn create_bloom_from_queryhash(
 fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<String, String> {
     let mut sp = Spinner::with_timer(
         Spinners::Line,
-        format!("Waiting for data from Datalake for {}...", &query_hash).into(),
+        format!("Waiting for data from Datalake for {}...", &query_hash),
     );
 
     let bulk_search_res = dtl.bulk_search(
@@ -194,8 +194,7 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
                 format!(
                     "Successfully received data from Datalake for {}.",
                     &query_hash
-                )
-                .into(),
+                ),
             );
             atom_values
         }
