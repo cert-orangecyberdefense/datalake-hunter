@@ -45,7 +45,7 @@ enum Commands {
 #[clap(
     about = "Checks if values in the provided file can be found in bloom filters or in Datalake using query hashes."
 )]
-#[clap(group(ArgGroup::new("bloom_filter_group").required(true).args(&["bloom", "queryhash"])))]
+#[clap(group(ArgGroup::new("bloom_filter_group").required(true).multiple(true).args(&["bloom", "queryhash"])))]
 struct Check {
     #[clap(
         short,
