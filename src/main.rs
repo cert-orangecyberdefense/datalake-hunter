@@ -2,8 +2,9 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, count_lookup_result_nb_lines, get_bloom_from_path, get_bloom_from_queryhashes, lookup_values_in_dtl,
-    read_input_file, write_bloom_to_file, write_csv, write_file,
+    check_val_in_bloom, count_lookup_result_nb_lines, get_bloom_from_paths,
+    get_bloom_from_queryhashes, lookup_values_in_dtl, read_input_file, write_bloom_to_file,
+    write_csv, write_file,
 };
 use log::{error, info, warn};
 use spinners::{Spinner, Spinners};
