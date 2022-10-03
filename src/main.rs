@@ -2,12 +2,12 @@ use bloomfilter::Bloom;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 use colored::*;
 use dtl_hunter::{
-    check_val_in_bloom, get_bloom_from_path, lookup_values_in_dtl, read_input_file,
-    write_bloom_to_file, write_csv,
+    check_val_in_bloom, count_lookup_result_nb_lines, get_bloom_from_path, lookup_values_in_dtl,
+    read_input_file, write_bloom_to_file, write_csv, write_file,
 };
 use log::{error, info, warn};
 use spinners::{Spinner, Spinners};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 #[derive(Parser)]
 #[clap(
@@ -257,12 +257,12 @@ fn check_command(args: &Check, cli: &Cli) {
 
     let mut bloom_matches: HashMap<String, Vec<String>> = HashMap::new();
     let mut nb_matches: usize = 0;
-    let mut matches_list: Vec<String> = Vec::new();
+    let mut matches_to_lookup: HashSet<String> = HashSet::new();
     let mut spinner = Spinner::new(Spinners::Line, "Checking values".to_string());
     for (filename, bloom) in blooms {
         let matches: Vec<String> = check_val_in_bloom(bloom, &input);
         if args.lookup.is_some() {
-            matches_list.extend(matches.clone());
+            matches_to_lookup.extend(matches.clone());
         }
         nb_matches += matches.len();
         bloom_matches.insert(filename, matches);
@@ -277,8 +277,14 @@ fn check_command(args: &Check, cli: &Cli) {
     );
 
     if let Some(lookup_path) = &args.lookup {
-        if !matches_list.is_empty() {
-            manage_lookup(matches_list, lookup_path, &cli.environment);
+        if !matches_to_lookup.is_empty() {
+            let matches_to_lookup: Vec<String> = matches_to_lookup.into_iter().collect();
+            manage_lookup(
+                matches_to_lookup,
+                lookup_path,
+                &cli.environment,
+                Some(nb_matches),
+            );
         }
     }
 }
@@ -327,11 +333,42 @@ fn lookup_command(args: &Lookup, cli: &Cli) {
             return;
         }
     };
-    manage_lookup(input, &args.output, &cli.environment)
+    manage_lookup(input, &args.output, &cli.environment, None);
 }
 
-fn manage_lookup(input: Vec<String>, output: &PathBuf, environment: &String) {
-    match lookup_values_in_dtl(input, output, environment) {
+fn manage_lookup(
+    input: Vec<String>,
+    output: &PathBuf,
+    environment: &String,
+    nb_matches: Option<usize>,
+) {
+    let lookup_csv_string = match lookup_values_in_dtl(input, environment) {
+        Ok(lookup_csv_string) => lookup_csv_string,
+        Err(e) => {
+            error!("{}", e);
+            return;
+        }
+    };
+    let nb_lookup_matches: usize = count_lookup_result_nb_lines(&lookup_csv_string);
+    info!(
+        "{}",
+        format!("{} entries fetched from Datalake", &nb_lookup_matches)
+            .bright_blue()
+            .bold()
+    );
+    if let Some(nb_matches) = nb_matches {
+        if nb_matches != nb_lookup_matches {
+            warn!(
+                "{}",
+                format!(
+                    "Number of matches ({}) is different from number of lookup results ({}). If your bloom filter was created from a Datalake queryhash, some of your matches were probably false positives.",
+                    &nb_matches, &nb_lookup_matches
+                )
+                .yellow()
+            );
+        }
+    }
+    match write_file(output, lookup_csv_string) {
         Ok(()) => {
             info!(
                 "{}{}",

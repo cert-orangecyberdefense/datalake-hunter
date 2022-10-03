@@ -66,7 +66,7 @@ pub fn write_csv(
     Ok(())
 }
 
-fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
+pub fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
     let mut output_file: File = match File::create(&output_path) {
         Ok(output_file) => output_file,
         Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
@@ -293,9 +293,8 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
 
 pub fn lookup_values_in_dtl(
     atom_values: Vec<String>,
-    output: &PathBuf,
     environment: &String,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let mut dtl: Datalake = match init_datalake(environment) {
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
@@ -303,15 +302,24 @@ pub fn lookup_values_in_dtl(
     let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
     let csv_result: String = match dtl.bulk_lookup(atom_values) {
         Ok(csv_result) => {
-            sp.stop_and_persist("✔", "Finished!".into());
+            sp.stop_and_persist("✔", "Successfully fetched data from Datalake!".into());
             csv_result
         }
         Err(e) => {
-            sp.stop_and_persist("✗", "Failed.".into());
+            sp.stop_and_persist("✗", "Failed to fetch data from Datalake.".into());
             return Err(format!("{}", e));
         }
     };
-    write_file(output, csv_result)
+    Ok(csv_result)
+}
+
+pub fn count_lookup_result_nb_lines(csv: &String) -> usize {
+    let mut reader = Reader::from_reader(csv.as_bytes());
+    let mut nb_lines = 0;
+    for _ in reader.records() {
+        nb_lines += 1;
+    }
+    nb_lines
 }
 
 #[test]
