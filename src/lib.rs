@@ -78,8 +78,8 @@ fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
     Ok(())
 }
 
-pub fn write_bloom_to_file(bloom: Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
-    let serialized_bloom: String = serialize_bloom(&bloom)?;
+pub fn write_bloom_to_file(bloom: &Bloom<String>, output_path: &PathBuf) -> Result<(), String> {
+    let serialized_bloom: String = serialize_bloom(bloom)?;
     write_file(output_path, serialized_bloom)
 }
 
@@ -284,12 +284,12 @@ pub fn get_bloom_from_paths(
 
 pub fn get_bloom_from_queryhashes(
     queryhashes: &Vec<String>,
-    environnement: &String,
-    rate: f64
+    environment: &String,
+    rate: f64,
 ) -> Result<HashMap<String, Bloom<String>>, String> {
     let mut blooms: HashMap<String, Bloom<String>> = HashMap::new();
     for queryhash in queryhashes {
-        let bloom = create_bloom_from_queryhash(queryhash.to_string(), environnement, rate)?;
+        let bloom = create_bloom_from_queryhash(queryhash.to_string(), environment, rate)?;
         blooms.insert(queryhash.to_string(), bloom);
     }
     Ok(blooms)

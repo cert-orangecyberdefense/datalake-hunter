@@ -223,14 +223,14 @@ fn create_command(args: &Create, cli: &Cli) {
         }
     };
     match bloom_result {
-        Ok(bloom) => write_bloom(bloom, &output_path),
+        Ok(bloom) => write_bloom(&bloom, &output_path),
         Err(e) => {
             error!("Error while creating bloom filter: {}", e)
         }
     };
 }
 
-fn write_bloom(bloom: Bloom<String>, output: &PathBuf) {
+fn write_bloom(bloom: &Bloom<String>, output: &PathBuf) {
     match write_bloom_to_file(bloom, output) {
         Ok(()) => {
             info!(
@@ -279,7 +279,7 @@ fn check_command(args: &Check, cli: &Cli) {
             for (queryhash, bloom) in &queryhash_blooms {
                 let mut path = PathBuf::from(queryhash);
                 path.set_extension("bloom");
-                write_bloom(bloom.to_owned(), &path);
+                write_bloom(&bloom, &path);
             }
         }
         blooms.extend(queryhash_blooms);
