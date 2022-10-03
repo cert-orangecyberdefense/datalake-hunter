@@ -279,7 +279,7 @@ fn check_command(args: &Check, cli: &Cli) {
             for (queryhash, bloom) in &queryhash_blooms {
                 let mut path = PathBuf::from(queryhash);
                 path.set_extension("bloom");
-                write_bloom(&bloom, &path);
+                write_bloom(bloom, &path);
             }
         }
         blooms.extend(queryhash_blooms);
