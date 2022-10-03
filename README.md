@@ -36,23 +36,23 @@ Check `dtl_hunter -h` for help, including a list of commands and flags avaiable.
 
 ## Create command
 
-Allow users to create bloom filters for Datalake Hunter. Using bloom filters, users can search values in Datalake without an internet connection.
+Allow users to create bloom filters for Datalake Hunter. Using bloom filters, users can check values in Datalake without an internet connection.
 
 Two types of input are available to create bloom filters:
 
-- A file with a value on each line
-- A queryhash from Datalake
+- A CSV file (the values from the first column will be used)
+- A query hash from Datalake
 
-Created bloom filters will be located in the current directory and use the queryhash or the source file's name with the `.bloom` extension if the output flag isn't set.
+Created bloom filters will be located in the current directory and use the query hash or the source file's name with the `.bloom` extension if the output flag isn't set.
 
 Check `dtl_hunter create -h` for information on the available options for this sub-command.
 
 ### Example
 
-Using the following command, a bloom filter named `dangerous_ip.bloom` will be created in the current directory from a text file `dangerous_ip.txt` which contains one value per line. A false positive rate of `0.0001` is used.
+Using the following command, a bloom filter named `dangerous_ip.bloom` will be created in the current directory from a Datalake query hash on production environment. A false positive rate of `0.0001` is used.
 
 ```(shell)
-dtl_hunter create -f dangerous_ip.txt -o dangerous_ip.bloom -r 0.0001
+dtl_hunter create -e prod -q 7ffc040dea48bdf06a1e74d7e7bec74c -o dangerous_ip.bloom -r 0.0001
 ```
 
 ### Options
@@ -80,7 +80,7 @@ The output can be saved into a file using the `-o` flag and providing the path t
 
 When a query hash is provided, it will be used as the name of the bloom filter in the csv file.
 
-⚠️ Please be aware that bloom filters **can and will produce false positive matches** but **will not produce false negative**. The default false positive rate for our bloom filters is `0.00001`, meaning  1 false positive in 100 000. You are free to change this rate but there will always be a chance of false positive result. Please check the project description above for more information.
+⚠️ Please be aware that bloom filters **can and will produce false positive matches** but **will not produce false negative**. The default false positive rate for our bloom filters is `0.00001`, meaning  1 false positive in 100 000. You are free to change this rate but there will always be a chance of false positive result. Please check the project description above for more information about bloom filters.
 
 ## Example
 
@@ -100,7 +100,7 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 - `--quiet` : Silence the output of matched value to the stdout.
 - `--no-header` : Remove the header from the CSV file.
 - `-r` | `--rate` : Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be. `--save` needs to be set to save the bloom filter. [default: 0.00001]
-- `--save` : Enable saving bloom filters created from the query hashes
+- `--save` : Enable saving bloom filters created from the query hashes.
 
 
 ## Lookup Command
