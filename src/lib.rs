@@ -1,5 +1,6 @@
 use bloomfilter::Bloom;
 use csv::{Reader, ReaderBuilder, Writer};
+use ocd_datalake_rs::error::DatalakeError;
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
 use std::collections::{HashMap, HashSet};
@@ -200,7 +201,19 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
         }
         Err(e) => {
             sp.stop_and_persist("✗", "Failed.".into());
-            return Err(format!("{}", e));
+            match e {
+                DatalakeError::ApiError(detailled_error) => {
+                    let api_resp = match { detailled_error.api_response } {
+                        Some(resp) => resp,
+                        None => "API responded without a message.".to_string(),
+                    };
+
+                    return Err(format!("{} - {}", detailled_error.summary, api_resp));
+                }
+                _ => {
+                    return Err(format!("{}", e));
+                }
+            }
         }
     };
 
