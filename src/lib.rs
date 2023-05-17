@@ -1,5 +1,6 @@
 use bloomfilter::Bloom;
 use csv::{Reader, ReaderBuilder, Writer};
+use ocd_datalake_rs::error::DatalakeError;
 use ocd_datalake_rs::{Datalake, DatalakeSetting};
 use spinners::{Spinner, Spinners};
 use std::collections::{HashMap, HashSet};
@@ -39,12 +40,12 @@ pub fn write_csv(
     output: &PathBuf,
     no_header: &bool,
 ) -> Result<(), String> {
-    let mut writer: Writer<File> = match Writer::from_path(&output) {
+    let mut writer: Writer<File> = match Writer::from_path(output) {
         Ok(writer) => writer,
         Err(e) => return Err(format!("{}: {}", &output.display(), e)),
     };
     if !no_header {
-        match writer.write_record(&["matching_value", "bloom_filename"]) {
+        match writer.write_record(["matching_value", "bloom_filename"]) {
             // write the csv header
             Ok(()) => (),
             Err(e) => return Err(format!("{}: {}", &output.display(), e)),
@@ -52,7 +53,7 @@ pub fn write_csv(
     }
     for (filename, values) in matches {
         for val in values {
-            match writer.write_record(&[val, filename]) {
+            match writer.write_record([val, filename]) {
                 Ok(()) => (),
                 Err(e) => return Err(format!("{}: {}", &output.display(), e)),
             }
@@ -67,7 +68,7 @@ pub fn write_csv(
 }
 
 pub fn write_file(output_path: &PathBuf, content: String) -> Result<(), String> {
-    let mut output_file: File = match File::create(&output_path) {
+    let mut output_file: File = match File::create(output_path) {
         Ok(output_file) => output_file,
         Err(e) => return Err(format!("{}: {}", output_path.display(), e)),
     };
@@ -200,7 +201,19 @@ fn fetch_atom_values_from_dtl(query_hash: String, mut dtl: Datalake) -> Result<S
         }
         Err(e) => {
             sp.stop_and_persist("✗", "Failed.".into());
-            return Err(format!("{}", e));
+            match e {
+                DatalakeError::ApiError(detailled_error) => {
+                    let api_resp = match { detailled_error.api_response } {
+                        Some(resp) => resp,
+                        None => "API responded without a message.".to_string(),
+                    };
+
+                    return Err(format!("{} - {}", detailled_error.summary, api_resp));
+                }
+                _ => {
+                    return Err(format!("{}", e));
+                }
+            }
         }
     };
 
