@@ -2,7 +2,13 @@
 name = "dtl_hunter"
 version = "0.1.2"
 edition = "2021"
-
+authors = ["Orange Cyberdefense CERT"]
+repository = "https://github.com/cert-orangecyberdefense/datalake-hunter"
+readme = "README.md"
+license = "MIT"
+exclude = [
+    ".github/*",
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

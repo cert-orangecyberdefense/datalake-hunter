@@ -1,14 +1,9 @@
 
 # Datalake Hunter
 
-```(shell)
-  _____        _        _       _          _    _             _            
- |  __ \      | |      | |     | |        | |  | |           | |           
- | |  | | __ _| |_ __ _| | __ _| | _____  | |__| |_   _ _ __ | |_ ___ _ __ 
- | |  | |/ _` | __/ _` | |/ _` | |/ / _ \ |  __  | | | | '_ \| __/ _ \ '__|
- | |__| | (_| | || (_| | | (_| |   <  __/ | |  | | |_| | | | | ||  __/ |   
- |_____/ \__,_|\__\__,_|_|\__,_|_|\_\___| |_|  |_|\__,_|_| |_|\__\___|_|   
-```
+<p align="center">
+  <img src="resource/image/datalake_hunter_logo_wolf.png" />
+</p>
 
 A CLI program to create bloom filters from Datalake and check for matches from a list of value, even when offline.
 
@@ -102,7 +97,6 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 - `-r` | `--rate` : Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be. `--save` needs to be set to save the bloom filter. [default: 0.00001]
 - `--save` : Enable saving bloom filters created from the query hashes.
 
-
 ## Lookup Command
 
 Allow users to look up values in Datalake to get more information. It can be used after using the Check command to get details on the matched threats. This command does not interract with bloom filters.
@@ -112,6 +106,7 @@ Provides data from Datalake in a CSV format.
 ### Example
 
 Using the following command, the values matched from a check command and saved in `ip.csv` will be looked up on Datalake. The data fetched from Datalake will then be saved in `output.csv`.
+
 ```(shell)
 dtl_hunter lookup -i ip.csv -o output.csv
 ```
