@@ -96,6 +96,7 @@ dtl_hunter check -i input.txt -o output.csv -b subfolder/ip.bloom -b very_danger
 - `--no-header` : Remove the header from the CSV file.
 - `-r` | `--rate` : Rate of false positive. Can be between 0.0 and 1.0. The lower the rate the bigger the bloom filter will be. `--save` needs to be set to save the bloom filter. [default: 0.00001]
 - `--save` : Enable saving bloom filters created from the query hashes.
+- `-t` | `--treat-hashes-like` : Specifies which atom type should hashes be interpreted as. Default is file, see Datalake API documentation for possible values
 
 ## Lookup Command
 
@@ -115,3 +116,4 @@ dtl_hunter lookup -i ip.csv -o output.csv
 
 - `-i` | `--input` : Path to file containing the value to lookup, one value per line or the values from the first column in a CSV.
 - `-o` | `--output` : Path to the file in which to output the result.
+- `-t` | `--treat-hashes-like` : Specifies which atom type should hashes be interpreted as. Default is file, see Datalake API documentation for possible values

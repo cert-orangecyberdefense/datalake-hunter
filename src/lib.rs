@@ -329,13 +329,14 @@ pub fn check_val_in_bloom(bloom: Bloom<String>, input: &Vec<String>) -> Vec<Stri
 pub fn lookup_values_in_dtl(
     atom_values: Vec<String>,
     environment: &String,
+    treat_hashes_like: &String,
 ) -> Result<String, String> {
     let mut dtl: Datalake = match init_datalake(environment) {
         Ok(dtl) => dtl,
         Err(e) => return Err(format!("{}", e)),
     };
     let mut sp = Spinner::with_timer(Spinners::Line, "Waiting for data from Datalake...".into());
-    let csv_result: String = match dtl.bulk_lookup(atom_values) {
+    let csv_result: String = match dtl.bulk_lookup(atom_values, treat_hashes_like) {
         Ok(csv_result) => {
             sp.stop_and_persist("✔", "Successfully fetched data from Datalake!".into());
             csv_result
