@@ -2,6 +2,7 @@ on:
   pull_request:
     branches:
       - develop
+      - develop_v3
       - master
 
 name: Check & Test
