@@ -240,14 +240,18 @@ fn dtl_csv_resp_to_vec(csv: String) -> Result<Vec<String>, String> {
 }
 
 fn init_datalake(environment: &String) -> Result<Datalake, io::Error> {
-    let username = get_username()?;
-    let password = get_password()?;
+    let long_term_token = env::var("OCD_DTL_RS_LONG_TERM_TOKEN").ok();
+    let (username, password) = if long_term_token.is_some() {
+        (None, None)
+    } else {
+        (get_username().ok(), get_password().ok())
+    };
     let dtl_setting = if environment == "preprod" {
         DatalakeSetting::preprod()
     } else {
         DatalakeSetting::prod()
     };
-    Ok(Datalake::new(username, password, dtl_setting))
+    Ok(Datalake::new(username, password, long_term_token, dtl_setting))
 }
 
 fn get_username() -> Result<String, io::Error> {
@@ -255,6 +259,7 @@ fn get_username() -> Result<String, io::Error> {
         Ok(username) => Ok(username),
         Err(_) => {
             println!("To avoid having to enter your username every time please set the environment variable OCD_DTL_RS_USERNAME.");
+            println!("You can also use a long-term token to authenticate by setting the environment variable OCD_DTL_RS_LONG_TERM_TOKEN.");
             println!("Please enter your username:");
             let mut username = String::new();
             match io::stdin().read_line(&mut username) {
@@ -276,6 +281,7 @@ fn get_password() -> Result<String, io::Error> {
         Ok(password) => Ok(password),
         Err(_) => {
             println!("To avoid having to enter your password every time, please set the environment variable OCD_DTL_RS_PASSWORD.");
+            println!("You can also use a long-term token to authenticate by setting the environment variable OCD_DTL_RS_LONG_TERM_TOKEN.");
             println!("Please enter your password:");
             let password = match rpassword::read_password() {
                 Ok(password) => password,
