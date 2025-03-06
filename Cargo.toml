@@ -1,6 +1,6 @@
 [package]
 name = "dtl_hunter"
-version = "0.3.0-pre.2"
+version = "0.3.0-pre.3"
 edition = "2021"
 authors = ["Orange Cyberdefense CERT"]
 repository = "https://github.com/cert-orangecyberdefense/datalake-hunter"
