@@ -1,8 +1,14 @@
 [package]
 name = "dtl_hunter"
-version = "0.1.2"
+version = "0.3.0"
 edition = "2021"
-
+authors = ["Orange Cyberdefense CERT"]
+repository = "https://github.com/cert-orangecyberdefense/datalake-hunter"
+readme = "README.md"
+license = "MIT"
+exclude = [
+    ".github/*",
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -14,7 +20,7 @@ serde = "1.0.143"
 ron = "0.8.0"
 colored = "2.0.0"
 csv = "1.1.6"
-ocd_datalake_rs = "0.2.0"
+ocd_datalake_rs = "0.3.0"
 rpassword = "7.0.0"
 spinners = "4.1.0"
 [dev-dependencies]
