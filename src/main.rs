@@ -105,6 +105,14 @@ struct Check {
         help = "Enable saving bloom filters created from the query hashes"
     )]
     save: bool,
+    #[clap(
+        short,
+        long,
+        value_parser,
+        default_value = "file",
+        help = "Specifies which atom type should hashes be interpreted as. See Datalake API documentation for possible values"
+    )]
+    treat_hashes_like: String,
 }
 
 #[derive(Args)]
@@ -165,6 +173,14 @@ struct Lookup {
         help = "Path to the file in which to output the result."
     )]
     output: PathBuf,
+    #[clap(
+        short,
+        long,
+        value_parser,
+        default_value = "file",
+        help = "Specifies which atom type should hashes be interpreted as. See Datalake API documentation for possible values"
+    )]
+    treat_hashes_like: String,
 }
 
 fn validate_false_positive(value: &str) -> Result<f64, String> {
@@ -316,6 +332,7 @@ fn check_command(args: &Check, cli: &Cli) {
                 lookup_path,
                 &cli.environment,
                 Some(nb_matches),
+                &args.treat_hashes_like,
             );
         }
     }
@@ -365,7 +382,7 @@ fn lookup_command(args: &Lookup, cli: &Cli) {
             return;
         }
     };
-    manage_lookup(input, &args.output, &cli.environment, None);
+    manage_lookup(input, &args.output, &cli.environment, None, &args.treat_hashes_like);
 }
 
 fn manage_lookup(
@@ -373,8 +390,9 @@ fn manage_lookup(
     output: &PathBuf,
     environment: &String,
     nb_matches: Option<usize>,
+    treat_hashes_like: &String,
 ) {
-    let lookup_csv_string = match lookup_values_in_dtl(input, environment) {
+    let lookup_csv_string = match lookup_values_in_dtl(input, environment, treat_hashes_like) {
         Ok(lookup_csv_string) => lookup_csv_string,
         Err(e) => {
             error!("{}", e);
